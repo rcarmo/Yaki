@@ -1,0 +1,6 @@
+<p>
+<div style="-webkit-border-radius: 8px; font-size: small; background-color: #ccc; color: #000; border: 1px solid #aaa; margin: 0; padding: 3px; overflow: hidden;">
+"<a href="%(permalink)s"><strong>%(title)s</strong></a>" was originally posted on %(origdate)s. 
+<!-- Insert attribution and content license here -->
+</p></div>
+</p>

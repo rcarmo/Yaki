@@ -1,0 +1,102 @@
+/****
+
+Stylesheet to set the basic page layout.
+This should be the css that doesn't change across all page templates,
+unless you're going to rearrange the whole page.
+
+(c) Irmen de Jong -- part of FileMgr
+
+*****/
+
+div
+{
+	padding: 4px;
+	margin: 0;
+}
+body
+{
+	padding: 0px;
+	margin: 0px;
+	overflow: auto;
+}
+
+div.page
+{
+    min-width: 500px;
+    padding: 0px;
+    margin: 0px;
+}
+
+div.heading
+{
+    margin: 0;
+    padding: 1ex;
+}
+
+div.heading h1,h2,h3
+{
+	margin: 0pt;
+	padding: 0pt;
+}
+
+div.menucolumn
+{
+	float: left;
+	width: 14em;    /* also adapt margin-left of the contentcolumn, below */
+    margin: 0px;
+}
+
+div.contentcolumn
+{
+	width: auto;
+	margin-left: 15em;  /* increase together with menucolumn width above */
+	height: 100%;	/* fix the Win32 IE float bug */
+}
+div.footer
+{
+	clear: left;
+	text-align: center;
+}
+
+
+/*---- Navigation ----*/
+.vnav dl,dt {
+	white-space: nowrap;
+    margin: 0pt;
+    padding: 0pt;
+    width: 80%;
+}
+
+.vnav dl {
+    margin-bottom: 10px;
+}
+
+.vnav dd {
+    margin-left: 8pt;
+}
+
+a img
+{
+	border-width: 0;	/* remove the border around linked images. <img border="0" ..../> is invalid in XHTML 1.1 */
+}
+
+
+td,th
+{
+    vertical-align: top;
+}
+
+table.filelist
+{
+}
+
+table.filelist th, table.filelist td
+{
+    padding-left: 4px;
+    padding-right: 4px;
+    white-space: nowrap;
+}
+table.filelist .longtext
+{
+    white-space: normal;
+}

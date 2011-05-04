@@ -1,0 +1,14 @@
+<h3 class="dateheading">%(date)s</h3>
+<div class="entry">
+  <div class="entry-meta">
+    <ul>%(metadata)s</ul>
+    <div class="entry-references">%(references)s</div>
+  </div>
+  <div class="entry-body">
+    <div class="entry-title"><h1><a href="%(permalink)s" class="%(linkclass)s" rel="bookmark" title="%(description)s">%(posttitle)s</a></h1></div>
+    <div class="entry-content">%(content)s</div>
+    <div class="entry-comments">%(comments)s</div>
+  </div>
+</div>
+<br clear="all"/>
+

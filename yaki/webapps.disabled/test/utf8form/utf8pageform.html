@@ -1,0 +1,101 @@
+﻿<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/REC-html40/strict.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>form as a UTF-8 page</title>
+<style type="text/css">
+<!--
+body, input {
+    font-family: arial,helvetica,sans-serif;
+    font-size: 10pt;
+}
+form.correctForm {
+	background-color: #CCFFFF;
+}
+-->
+</style>
+</head>
+<body>
+<h1>Forms on an UTF-8 page</h1>
+<p>This page is in UTF-8 encoding.</p>
+<form action="formaccepter.sn" method="post">
+<fieldset><legend>Plain Form</legend>
+  <p> 
+    <input type="text" name="text" value="&euro;&euml;&copy;&#x2661;">
+    &lt;&lt;some text to submit; 
+    <select name="outputencoding" id="outputencoding1">
+      <option value="" selected>default</option>
+      <option value="UTF-8">UTF-8</option>
+      <option value="UTF-7">UTF-7</option>
+      <option value="iso-8859-1">iso-8859-1</option>
+      <option value="iso-8859-15">iso-8859-15</option>
+      <option value="US-ASCII">US-ASCII</option>
+      <option value="UTF-16">UTF-16</option>
+    </select>
+    &lt;&lt;output encoding
+&nbsp;&nbsp; <input type="submit" name="Submit" value="Submit">
+  </fieldset>
+</form>
+
+<form action="formaccepter.sn" method="post" accept-charset="UTF-8">
+<fieldset><legend>Form with UTF-8 accept-charset</legend>
+  <p>
+<input type="text" name="text" value="&euro;&euml;&copy;&#x2661;">
+    &lt;&lt;some text to submit; 
+    <select name="outputencoding" id="outputencoding2">
+      <option value="" selected>default</option>
+      <option value="UTF-8">UTF-8</option>
+      <option value="UTF-7">UTF-7</option>
+      <option value="iso-8859-1">iso-8859-1</option>
+      <option value="iso-8859-15">iso-8859-15</option>
+      <option value="US-ASCII">US-ASCII</option>
+      <option value="UTF-16">UTF-16</option>
+    </select>
+    &lt;&lt;output encoding; 
+&nbsp;&nbsp; <input type="submit" name="Submit" value="Submit">
+</fieldset>
+</form>
+
+<form action="utf8formaccepter.sn" method="post">
+<fieldset><legend>Plain Form --> UTF8 servlet</legend>
+  <p> 
+    <input type="text" name="text" value="&euro;&euml;&copy;&#x2661;">
+    &lt;&lt;some text to submit; 
+    <select name="outputencoding" id="outputencoding3">
+      <option value="" selected>default</option>
+      <option value="UTF-8">UTF-8</option>
+      <option value="UTF-7">UTF-7</option>
+      <option value="iso-8859-1">iso-8859-1</option>
+      <option value="iso-8859-15">iso-8859-15</option>
+      <option value="US-ASCII">US-ASCII</option>
+      <option value="UTF-16">UTF-16</option>
+    </select>
+    &lt;&lt;output encoding
+&nbsp;&nbsp; <input type="submit" name="Submit" value="Submit">
+  </fieldset>
+</form>
+
+<form class="correctForm" action="utf8formaccepter.sn" method="post" accept-charset="UTF-8">
+<fieldset><legend>Form with UTF-8 accept-charset --> UTF8 servlet</legend>
+  <p>
+<input type="text" name="text" value="&euro;&euml;&copy;&#x2661;">
+    &lt;&lt;some text to submit; 
+    <select name="outputencoding" id="outputencoding4">
+      <option value="" selected>default</option>
+      <option value="UTF-8">UTF-8</option>
+      <option value="UTF-7">UTF-7</option>
+      <option value="iso-8859-1">iso-8859-1</option>
+      <option value="iso-8859-15">iso-8859-15</option>
+      <option value="US-ASCII">US-ASCII</option>
+      <option value="UTF-16">UTF-16</option>
+    </select>
+    &lt;&lt;output encoding; 
+&nbsp;&nbsp; <input type="submit" name="Submit" value="Submit">
+</fieldset>
+</form>
+<p>
+The highlighted form is the <em>only</em> one that can submit UTF-8 data correctly using
+different browsers (Moz, IE, Opera). It's best to switch output encoding to UTF-8 too, otherwise you
+might not see all non-ascii characters correctly on the <em>output</em> pages.... 
+</body>
+</html>

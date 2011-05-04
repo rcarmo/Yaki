@@ -1,0 +1,53 @@
+961d
+927a
+    
+    def handshake(self, tlsConnection):
+        try:
+            tlsConnection.handshakeServer(certChain=certChain,
+                                        privateKey=privateKey,
+                                        sessionCache=sessionCache)
+            tlsConnection.ignoreAbruptClose = True
+            return True
+        except (SyntaxError, TLSError), error:
+            print "Handshake failure:", str(error)
+            return False        
+
+    
+.
+908c
+            if IS_SSL:
+                tlsConnection = TLSConnection(request)
+                if self.handshake(tlsConnection) == True:
+                    self.RequestHandlerClass(tlsConnection, client_address, self)
+                    tlsConnection.close()
+            else:
+                self.RequestHandlerClass(request, client_address, self)
+.
+889c
+                if IS_SSL:
+                    tlsConnection = TLSConnection(request)
+                    if self.handshake(tlsConnection) == True:
+                        self.RequestHandlerClass(tlsConnection, client_address, self)
+                        tlsConnection.close()
+                else:
+                    self.RequestHandlerClass(request, client_address, self)
+.
+21a
+IS_SSL=True
+try:
+    from tlslite.api import *
+except ImportError:
+    IS_SSL=False
+
+if IS_SSL:
+    s = open("./localhost.crt").read()
+    x509 = X509()
+    x509.parse(s)
+    certChain = X509CertChain([x509])
+    
+    s = open("./localhost.private.key").read()
+    privateKey = parsePEMKey(s, private=True)
+    
+    sessionCache = SessionCache()
+  
+.

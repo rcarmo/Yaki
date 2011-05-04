@@ -1,0 +1,2 @@
+This is bar.txt
+in "dir1/dir2"

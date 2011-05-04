@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+	"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+  %(meta)s
+  <link rel="stylesheet" type="text/css" charset="utf-8" href="/themes/less/css/site-min.css" />
+  <script type="text/javascript" src="/themes/less/js/site-min.js"></script>
+  <title>%(code)d - %(message)s</title>
+  <style type="text/css">
+    body {
+      background: #fff;
+    	font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+    	font-size: 9pt;
+    	color: #000;
+    	line-height: 1.4;
+    	margin: 0px;
+    	padding: 0px;
+    }
+    .logo, .errorcode {float:left;position:absolute;top: 0px; left: 0px; margin:0; padding:0;width: 400px; vertical-align: middle;text-align:center; font-weight: bold;}
+    .logo {font-family: AppleGothic, "Helvetica Neue", Helvetica, Arial, sans-serif !important; height:400px; line-height: 400px;font-size: 340px; color: #dfd; z-index: -200;}
+    .errorcode {height:300px;line-height:300px;font-size: 160px; color: #ddd; z-index: -100;text-shadow: 2px 2px 2px #ccc;}
+    .description {float:left; padding:0; margin: 100px 0px 0px 200px; z-index: 0;}
+    .heading {color: #000;}
+    .description h2 {font-size: 18pt;}
+    .blockquote p {
+      border-left: 2px solid #0088cc;
+      margin-top: 8px;
+      margin-bottom: 8px;
+      padding: 4px 8px 8px 8px;
+      background-color: #eee;
+    }
+    pre { font-family: Menlo, "Courier New", Courier, monospaced;}
+    #goog-wm { }
+    #goog-wm h3.closest-match { }
+    #goog-wm h3.closest-match a { }
+    #goog-wm h3.other-things { }
+    #goog-wm ul li { }
+    #goog-wm li.search-goog { display: block; }
+  </style>
+  <script type="text/javascript">
+    var GOOG_FIXURL_LANG = 'en';
+    var GOOG_FIXURL_SITE = '%(hostname)s';
+  </script>
+</head>
+
+<body>
+  <div class="logo">&#x713c;</div>
+  <div class="errorcode">%(code)d</div> 
+  <div class="description">
+    <h2 class="heading">%(heading)s</h2>
+    <p>%(message)s</p>
+  <h4 class="heading">&quot;%(path)s&quot; gave the following message:</h4>
+  <blockquote>%(explanation)s</blockquote>  
+  <script type="text/javascript" 
+      src="http://linkhelp.clients.google.com/tbproxy/lh/wm/fixurl.js"></script>
+  </div>
+  </body>
+</html>
+
+
+

@@ -1,0 +1,105 @@
+body {
+background-color: #009090;
+color: #000000;
+font-family: "Georgia", Times, serif;
+font-size: 11pt;
+margin-bottom: 20pt;
+margin-left: 70pt;
+margin-right: 10pt;
+margin-top: 8pt;
+}
+
+td {
+	font-size: 11pt;
+	padding-bottom: 4pt;
+	padding-right: 4pt;
+}
+	
+a {
+background-color: transparent;
+color: #00008f;
+background-image: url(play.gif);
+background-repeat: no-repeat;
+background-position: left;
+padding-left: 15px;
+}
+
+a:hover {
+background-color: #d0f0f0;
+color: #00008f;
+}
+
+div.body {
+background-color: #80c0c0;
+color: #000000;
+margin-right: 6em;
+margin-top: 1em;
+padding: 1em;
+}
+
+form {
+margin-bottom: 4pt;
+margin-left: -20pt;
+margin-right: -20pt;
+margin-top: 4pt;
+border: 0px;
+background-color: #D0E0F0;
+color: black;
+padding: 4pt;
+}
+
+h1, h2, h3, h4, h5 {
+background-color: #007070;
+color: #004040;
+font-family: Verdana, Geneva, Arial, Helvetica, sans-serif;
+font-variant: small-caps;
+margin-bottom: 6pt;
+margin-right: 6pt;
+margin-top: 6pt;
+padding: 3pt;
+text-indent: 3pt;
+}
+
+h1 { margin-left: -60pt; font-size: 24pt; }
+h2 { margin-left: -50pt; font-size: 18pt; }
+h3 { margin-left: -40pt; font-size: 14pt; }
+h4 { margin-left: -30pt; font-size: 12pt; }
+h5 { margin-left: -20pt; font-size: 10pt; }
+
+input {
+border-width: 1px;
+font-family: Verdana, Geneva, Arial, Helvetica, sans-serif;
+padding: 2px;
+}
+
+input.button {
+background-color: #D0D0E0;
+border-color: #D0D0E0;
+border-width: 1px;
+color: #000000;
+padding: 2px;
+}
+
+p {
+margin-bottom: 0.6em;
+margin-top: 0.6em;
+}
+
+span.error {
+background-color: transparent;
+color: red;
+font-family: Arial, Helvetica, sans-serif;
+}
+
+span.message {
+	color: Maroon;
+	background-color: transparent;
+	font-weight: bold;
+}
+
+pre {
+	background-color: #90d0d0;	
+	color: black;
+	font-family: "Lucida Console", "Courier New", Courier, monospace;
+}
+

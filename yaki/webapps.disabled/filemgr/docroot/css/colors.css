@@ -1,0 +1,115 @@
+/*****
+
+Stylesheet to set the COLORS of the page elements.
+(c) Irmen de Jong -- part of FileMgr
+
+GREEN colors.
+colors in use:
+	#000000
+	#004000
+	#204030
+	#205040
+	#303030
+	#408060
+	#809080
+	#b0c0b0
+	#c0d0c0
+	#d0d8d0
+	#e0e8e0
+	#ecf0e0
+	#f8f8f0
+	#ffffff
+    #e05030
+    #50b030
+    
+********/
+
+body {
+	color: green;
+	background: #809080;
+}
+a {
+	color: #408060;
+}
+a:hover {
+	color: #000000;
+	background: #e0e8e0;
+}
+
+.vnav dt	{	border-bottom-color: #b0c0b0; color: #408060;    }
+.vnav a		{	color: #205040;    }
+
+div.page {
+	color: #204030;
+	background: #f8f8f0; 
+}
+
+div.heading
+{
+    color: #ffffff;
+    background: #004000;
+	border-bottom-color: #ffffff;
+}
+div.heading a
+{
+    color: #c0d0c0;
+}
+
+div.footer
+{
+    color: #205040;
+    background: #e0e8e0;
+	border-top-color: #303030;
+	border-bottom-color: #303030;
+}
+
+div.menucolumn
+{
+    background: transparent;
+	border-right-color: #d0d8d0;
+}
+
+div.contentcolumn h1,div.contentcolumn h2,div.contentcolumn h3,div.contentcolumn h4,div.contentcolumn h5,div.contentcolumn h6
+{
+    color: #408060;
+}
+
+div.contentcolumn pre
+{
+	color: #204030;
+	background: #ecf0e0;
+	border-color: #d0d8d0;
+}
+
+div.contentcolumn blockquote
+{
+	color: #204030;
+    border-left: solid #d0d8d0 2px;
+    border-right: solid #d0d8d0 2px;
+    border-top: dotted #d0d8d0 1px;
+    border-bottom: dotted #d0d8d0 1px;
+    padding-left: 4px;
+    padding-right: 4px;
+}
+
+div.contentcolumn	{	background: #f8f8f0;   }
+span.light			{	color: #b0c0b0;    }
+span.error			{	color: #e05030; font-weight: bold;  }
+span.message		{	color: #50b030; font-weight: bold;  }
+div.category 		{	border-color: #d0d8d0;    }
+div.comment 		{	border-top-color: #b0c0b0;    }
+
+div.article h4      {   background-color: #ecf0e0; border-bottom: solid #d0d8d0 1px;  }
+
+address
+{
+    color: #408060;
+	border-top-color: #b0c0b0;
+}
+
+fieldset {
+	border-color: #c0d0c0;
+}
+fieldset legend {
+	color: #205040;
+}

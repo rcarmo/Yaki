@@ -1,0 +1,274 @@
+/****
+
+Stylesheet for the default page 'theme'.
+The page customization (except for the colors!) is done here
+(fonts, border sizes/styles etc)
+
+(c) Irmen de Jong -- part of FileMgr
+
+*****/
+
+body
+{
+    font-family: monospace;
+    font-size: 10pt;
+}
+
+
+/*** Left Column ***/
+
+div.menucolumn
+{
+    border-right-style: solid;
+	border-right-width: 1px;
+	font-family: "Trebuchet MS", Verdana, helvetica, sans-serif;
+    padding: 1ex 1ex 5ex 2ex;
+    line-height: 150%;
+}
+
+div.menucolumn h1
+{
+    font-size: 18pt;
+}
+div.menucolumn h2
+{
+    margin: 1ex 0 0 0;
+    font-size: 14pt;
+}
+div.menucolumn h3
+{
+	margin: 1ex 0 0 0;
+	font-size: 11pt;
+}
+div.menucolumn h4
+{
+    margin: 1ex 0 0 0;
+    font-weight: bold;
+	font-size: 10pt;
+	letter-spacing: 1px;
+	font-variant: small-caps;
+	text-transform: capitalize;
+}
+div.menucolumn img
+{
+	border: none;
+	margin: 0px;
+	vertical-align: middle;
+}
+
+
+/*** Heading ***/
+div.heading
+{
+	font-family: "Trebuchet MS", Verdana, helvetica, sans-serif;
+	border-bottom-style: solid;
+	border-bottom-width: 1px;
+}
+div.heading h1
+{
+	font-weight: bold;
+	font-size: 16pt;
+	display: inline;
+	padding-left: 1ex;
+	padding-right: 2ex;
+}
+
+/*** Vertical Navigation Area ***/
+.vnav
+{
+	font-family: Tahoma, helvetica, sans-serif;
+	font-weight: normal;
+}
+
+.vnav dt
+{
+	font-weight: bold;
+    border-bottom-style: solid;
+	border-bottom-width: 1px;
+}
+.vnav a
+{
+	text-decoration: none;
+    border-bottom: 0px;
+}
+.vnav a:hover
+{
+    text-decoration: underline;
+}
+
+
+/*** Content Column ***/
+
+div.contentcolumn
+{
+    font-family: "Trebuchet MS", Verdana, helvetica, sans-serif;
+    white-space: normal;
+    padding: 0 8ex 3ex 3ex;
+}
+
+div.contentcolumn h1
+{
+    margin: 1ex 0 0 0;
+    font-size: 18pt;
+}
+div.contentcolumn h2
+{
+    margin: 1ex 0 0 0;
+    font-size: 14pt;
+}
+div.contentcolumn h3
+{
+	margin: 1ex 0 0 0;
+	font-size: 11pt;
+}
+div.contentcolumn h4
+{
+    margin: 1ex 0 0 0;
+    font-weight: bold;
+	font-size: 10pt;
+	letter-spacing: 1px;
+	font-variant: small-caps;
+	text-transform: capitalize;
+}
+div.contentcolumn p
+{
+    margin: 1ex 0 0 0;
+    text-indent: 0ex;
+}
+div.contentcolumn pre
+{
+	font-family: "Bitstream Vera Sans Mono", Courier, monospace;
+    font-size: 90%;
+	padding: 4px;
+	border-style: solid;
+	border-width: 1px;
+}
+
+div.contentcolumn img
+{
+	border: none;
+	margin: 0px;
+	vertical-align: middle;
+}
+
+div.contentcolumn blockquote
+{
+    font-size: 85%;
+	border-style: solid;
+	border-width: 1px;
+    margin: 1ex 0ex 0ex 4ex;
+}
+
+div.contentcolumn img.permalink, div.contentcolumn img.markuphelp
+{
+	margin: 0px;
+	vertical-align: baseline;
+}
+
+div.article {
+    border: none;
+    padding: 0 0 2ex 0;
+}
+    
+div.category {
+	font-family: Tahoma, Arial, Helvetica, sans-serif;
+	font-variant: small-caps;
+	text-transform: capitalize;
+	float: right;
+	border-style: solid;
+	border-width: 1px;
+	margin: -1px 0px 4px 14px;
+	padding: 1px 4px 2px 4px;
+}
+
+div.category a	{   text-decoration: none;    }
+
+div.comment {
+	margin-bottom: 1ex;
+	border-top-style: dotted;
+	border-top-width: 1px;
+}
+
+address
+{
+    font-style: italic;
+    font-size: 90%;
+    margin-top: 1ex;
+	border-top-style: dotted;
+	border-top-width: 1px;
+    width: 80%;
+    padding: 1px;
+}
+address.comment {
+	border: none;
+}
+
+
+
+/*** Footer ***/
+div.footer
+{
+	font-family: "Trebuchet MS", Verdana, helvetica, sans-serif;
+	font-weight: lighter;
+	font-size: 80%;
+    border-top-style: solid;
+	border-top-width: 1px;
+    border-bottom-style: solid;
+	border-bottom-width: 1px;
+}
+
+div.pagestatus
+{
+    font-size: 80%;
+    font-family: Arial, sans-serif;
+    color: #d0d0d0;
+    text-align: center;
+}
+
+/*** hyperlinks ***/
+a {
+    text-decoration: underline;
+    padding-left: 1px;
+    padding-right: 1px;
+}
+
+span.light {
+    font-family: Tahoma, helvetica, sans-serif;
+    font-size: 80%;
+}
+
+/*** forms ***/
+form {
+	margin-top: 1ex;
+	margin-bottom: 2ex;
+	margin-left: 0px;
+	margin-right: 0px;
+}
+
+input, textarea, select {
+	font-family: Tahoma, helvetica, sans-serif;
+	font-size: 10pt;
+}
+
+table caption {
+	text-align: left;
+	font-weight: bold;
+}
+
+th, td {
+    white-space: nowrap;
+    text-align: left;
+}
+
+/****
+fieldset {
+	border-width: 1px;
+	border-style: solid;
+	padding-left: 2ex;
+	padding-top: 1ex;
+	padding-bottom: 1ex;
+}
+fieldset legend {
+	font-weight: bold;
+}
+*****/
