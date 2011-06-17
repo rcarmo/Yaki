@@ -1,0 +1,8 @@
+.DS_Store
+.AppleDouble
+yaki/var/cache/*
+yaki/var/log/*
+yaki/var/cache/*
+yaki/var/log/*
+yaki/tmp/*
+
