@@ -5,6 +5,8 @@ Last-Modified: 2007-06-03 11:53:28
 Tags: meta
 Content-Type: text/x-textile
 
+This page contains sets of acronyms inside @pre@ tags. Yaki parses this page upon startup and uses it to populate an internal replacement table.
+
 h1. Generic Acronyms
 
 <pre>

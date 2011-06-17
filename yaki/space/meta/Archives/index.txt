@@ -1,9 +1,11 @@
 From: Rui Carmo
 Title: Archives
-Content-Type: text/x-textile
+Content-Type: text/x-markdown
 X-Index: no
 X-Cache-Control: max-age=0
 
-This page lists blog (and linkblog) entries for:
+This page lists blog (and linkblog) entries[1] for a given month.
 
 <plugin name="archive" src="blog|links">
+
+[^1]: these are defined as belonging to the `blog` or `links` folders by default, but you can edit this page to change that or re-use the `archive` plugin in any other page.

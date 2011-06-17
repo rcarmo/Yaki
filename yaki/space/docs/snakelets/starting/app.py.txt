@@ -1,0 +1,3 @@
+bindname='localhost'
+serverURLprefix='/snake/'
+externalPort=80

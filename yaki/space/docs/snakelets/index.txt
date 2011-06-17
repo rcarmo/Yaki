@@ -1,0 +1,12 @@
+From: Rui Carmo
+Date: 2011-03-24 22:38:08
+Title: Snakelets Documentation
+Tags: docs, snakelets, yaki
+Content-Type: text/x-markdown
+
+After many years, and in preparation to the (hopefully soon) release of the revised [Yaki][y] source code, I've started reviewing and updating the Snakelets documentation, which will reside under this tree.
+
+1. [Starting the Server][1]
+
+  [y]: projects/Yaki
+  [1]: docs/snakelets/starting

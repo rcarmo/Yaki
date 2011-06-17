@@ -1,0 +1,46 @@
+# we assume Yaki will be the default back-end
+backend default {
+    .host = "127.0.0.1";
+    .port = "9080";
+}
+
+# redefine the receive subroutine to forward the original client IP
+# and help somewhat with the default static paths
+sub vcl_recv {
+     if (req.http.x-forwarded-for) {
+ 	       set req.http.X-Forwarded-For =
+ 	       req.http.X-Forwarded-For ", " client.ip;
+     } else {
+ 	      set req.http.X-Forwarded-For = client.ip;
+     }
+     # these are where there are more static assets
+     if (req.request == "GET" && (
+       req.url ~ "^/themes/" ||
+       req.url ~ "^/media/" ||
+       req.url ~ "^/static/" ||
+       req.url ~ "^/attachment/"
+       )) {
+       unset req.http.cookie;
+       unset req.http.Authorization;
+       return (lookup);
+     }
+     if (req.request != "GET" &&
+       req.request != "HEAD" &&
+       req.request != "PUT" &&
+       req.request != "POST" &&
+       req.request != "TRACE" &&
+       req.request != "OPTIONS" &&
+       req.request != "DELETE") {
+         /* Non-RFC2616 or CONNECT which is weird. */
+         return (pipe);
+     }
+     if (req.request != "GET" && req.request != "HEAD") {
+         /* We only deal with GET and HEAD by default */
+         return (pass);
+     }
+     if (req.http.Authorization || req.http.Cookie) {
+         /* Not cacheable by default */
+         return (pass);
+     } 
+     return (lookup);
+}

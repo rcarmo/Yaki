@@ -1,0 +1,5 @@
+snakelets= {
+  "class"      : package.ClassName # route class* to ClassName (class/foo matches)
+  "docs/*.pdf" : package.PDFFilter # route all PDF file requests to a filter
+}
+

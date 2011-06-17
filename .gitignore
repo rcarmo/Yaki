@@ -1,4 +1,5 @@
 .DS_Store
+*.pyc
 .AppleDouble
 yaki/var/cache/*
 yaki/var/log/*

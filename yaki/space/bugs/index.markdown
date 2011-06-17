@@ -5,7 +5,7 @@ Title: Bugs
 
 # Lingering:
 
-1. Extension doesn't provide enough hints to content type
+1. Extension doesn't provide enough hints as to content type
 2. Sort out metadata templates
 3. Can't search for things ending in '.py'
 
