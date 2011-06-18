@@ -751,7 +751,6 @@ class WebApp(object):
 
     def reportSnakeletException(self, snakelet, exc, handler, out, request, response, errorpage=None):
         # oops something went wrong, print the traceback.
-        errorpage = errorpage or self.defaultErrorPage
         typ, value, tb = sys.exc_info()
         sys.exc_clear()
 
@@ -784,8 +783,8 @@ class WebApp(object):
                 return
             except Exception,x:
                 del tb
-                # OUCH, couldn't redirect to error page
-                return self.reportSnakeletException(snakelet,x,handler,out,request,response,None)
+                # OUCH, couldn't redirect to error page. Try using the default error page, if any
+                return self.reportSnakeletException(snakelet,x,handler,out,request,response, self.defaultErrorPage)
         else:
             if not response.used():
                 response.writeHeader()
