@@ -15,9 +15,8 @@ import logging, logging.config
 import util
 import webapp
 
-SNAKELETS_VERSION = "Snakelets 1.51-rcarmo"
-
-THREADING_ENABLED=True     # False for better debugging, True for multithreaded server.
+SNAKELETS_VERSION = "Snakelets 1.52-rcarmo"
+THREADING_ENABLED = True # False for better debugging, True for multithreaded server.
 
 
 log=None            # will be set by main()
