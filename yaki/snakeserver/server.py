@@ -55,7 +55,7 @@ class MyRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 <h1>Error response</h1>
 <p>Code %(code)s: %(explain)s.
 <p>Server message: %(message)s.
-<p><hr><address>"""+server_version+" Python/"+sys.version.split()[0]+"<br>If the problem remains, please contact webmaster @ this domain.</address></body></html>"
+<p><hr><address>"""+server_version+" Python/"+sys.version.split()[0]+"</address></body></html>"
 
     # extensions_map contains the mime type definitions.
     extensions_map=mimetypes.types_map.copy()
@@ -231,12 +231,14 @@ class MyRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     def logRequestInfo(self):
         # write a request to the access log.
         if accesslog.isEnabledFor(logging.INFO):
-            format='%s - - [%s] "%s" %s %s "%s" "%s"'
+            format='%s - - [%s] "%s" %s %s "%s" "%s" %f %f'
             useragent=self.headers.getheader('user-agent') or '-'
             referer=self.headers.getheader('referer') or '-'
             size=str(self.content_length) or '-'
-            args=( self.address_string(), self.log_date_time_string(), self.raw_requestline.strip(), str(self.response_code) or '?', size, referer, useragent )
-            accesslog.info( format%args )
+            args=( self.address_string(), self.log_date_time_string(), self.raw_requestline.strip(), str(self.response_code) or '?', size, referer, useragent, self.processTimeCPU, self.processTimeReal )
+            accesslog.info( format % args )
+        # send out notification packet
+        self.server.sendEvent("%d %s %s %s %f %f" % (self.response_code, self.raw_requestline.strip().split(' ')[1], referer, size, self.processTimeCPU, self.processTimeReal ))
 
     def do_GETorHEAD(self, passthroughRequest=None, passthroughResponse=None):
         # common code for GET and HEAD requests. (supports scripts / snakelets)
@@ -586,7 +588,7 @@ class ThreadingHTTPServer(object):
 
     __version__= SNAKELETS_VERSION
 
-    def __init__(self,HTTPD_PORT, externalPort, bindname, serverURLprefix, debugRequests, precompileYPages, writePageSource, escrow=None):
+    def __init__(self,HTTPD_PORT, externalPort, bindname, serverURLprefix, debugRequests, precompileYPages, writePageSource, escrow=None, monitor=None):
         log.info( 'Creating server on "%s"' % bindname )
         self.server_address = (bindname, HTTPD_PORT)
         self.server_port=HTTPD_PORT
@@ -608,6 +610,7 @@ class ThreadingHTTPServer(object):
         self.setExternalPort(externalPort)
         self._hostname_cache = {}
         self.escrow = escrow
+        self.monitorAddress = monitor
         self.startTime = time.time()
         self.configuredWebApps={}   # maps vhost->webapp name 
 
@@ -631,12 +634,22 @@ class ThreadingHTTPServer(object):
         # create the server socket
         self.createServerSocket()
 
+        # create the UDP socket for sending events
+        if monitor:
+          self.monitor = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+        else:
+          self.monitor = None
+
         # read and initialize the  webapps with their snakelets
         self.loadWebApps()
 
         if serverURLprefix:
             log.debug( "Server URL prefix: "+serverURLprefix )
         log.info( SNAKELETS_VERSION+ " using port %d" % HTTPD_PORT )
+
+    def sendEvent(self, buffer):
+      if self.monitor:
+        self.monitor.sendto(buffer,self.monitorAddress)
 
     def _listAvailableWebapps(self, enabledWebapps):
         webapps=[app for app in os.listdir(self.WEBAPPSDIR) if os.path.isdir(os.path.join(self.WEBAPPSDIR, app)) ]
@@ -1157,7 +1170,7 @@ def createPrivilegedObjects(sock_bindname, sock_port):
 #   Start everything!
 #
 def main(HTTPD_PORT=80, externalPort=None, bindname=None, serverURLprefix='', debugRequests=False,
-         precompileYPages=True, writePageSource=False, serverRootDir=None, runAsUser=None, runAsGroup=None, escrow=None):
+         precompileYPages=True, writePageSource=False, serverRootDir=None, runAsUser=None, runAsGroup=None, escrow=None, monitor=None):
 
     global log, accesslog, privilegedObjects
 
@@ -1217,7 +1230,7 @@ def main(HTTPD_PORT=80, externalPort=None, bindname=None, serverURLprefix='', de
             log.info("sendfile(2) is NOT available, compatible but slower file serving is used")
 
         try:
-            httpd=ThreadingHTTPServer(HTTPD_PORT,externalPort,bindname,serverURLprefix,debugRequests,precompileYPages,writePageSource,escrow=escrow)
+            httpd=ThreadingHTTPServer(HTTPD_PORT,externalPort,bindname,serverURLprefix,debugRequests,precompileYPages,writePageSource,escrow=escrow,monitor=monitor)
 
             sys.stdout.flush()
             try:
