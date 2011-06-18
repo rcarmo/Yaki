@@ -275,7 +275,7 @@ class Response(object):
     
     def HTTPredirect(self, URL):
         if self.header_written:
-            raise RuntimeError('can not redirect when getOutput() has been called')
+            raise RuntimeError('cannot redirect when getOutput() has been called')
         self.setResponse(302) # HTTP 302=redirect (Found)
         self.userHeaders["Location"]=URL
         out=self.getOutput()

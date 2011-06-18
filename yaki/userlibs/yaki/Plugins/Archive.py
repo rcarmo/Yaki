@@ -35,6 +35,8 @@ class ArchiveWikiPlugin(yaki.Plugins.WikiPlugin):
     registry.register('markup',self, 'plugin','archive')
     self.ac = webapp.getContext()
     self.i18n = yaki.Locale.i18n[self.ac.locale]
+    # localize month names for UI
+    self.monthnames = map(lambda x: self.i18n[x], monthnames)
   
   def run(self, serial, tag, tagname, pagename, soup, request, response):
     try:
@@ -86,13 +88,16 @@ class ArchiveWikiPlugin(yaki.Plugins.WikiPlugin):
           pass
       self.ac.cache['archive:' + tag['src']] = entries
     
-    # sanitize query parameters
-    y = request.getParameter('year', default=time.strftime("%Y"))
-    if y not in entries.keys():
-      y = time.strftime("%Y")
-    m = request.getParameter('month', default=time.strftime("%m"))
-    if m not in entries[y].keys():
-      m = time.strftime("%m")
+    try:
+      # sanitize query parameters
+      y = request.getParameter('year', default=time.strftime("%Y"))
+      if y not in entries.keys():
+        y = time.strftime("%Y")
+      m = request.getParameter('month', default=time.strftime("%m"))
+      if m not in entries[y].keys():
+        m = time.strftime("%m")
+    except KeyError: # there are no pages matching the criteria
+      pass
     
     # render controls based on query
     years=[]
@@ -111,7 +116,7 @@ class ArchiveWikiPlugin(yaki.Plugins.WikiPlugin):
         s = 'selected'
       else:
         s = ''
-      months.append('<option %s value="%02d">%s</option>' % (s,i+1,self.i18n[monthnames[i]]))
+      months.append('<option %s value="%02d">%s</option>' % (s,i+1,self.i18n[self.monthnames[i]]))
     months = u''.join(months)
     url = "?"
     button = self.i18n['List']
@@ -120,7 +125,7 @@ class ArchiveWikiPlugin(yaki.Plugins.WikiPlugin):
     try:
       days = entries[y][m].keys()
     except KeyError: #there are no entries for this year/month
-      table = '<div class="warning">%s</div>' % ('There are no entries for %s %s' % (self.i18n[monthnames[int(m)-1]], y))
+      table = '<div class="warning">%s</div>' % ('There are no entries for %s %s' % (self.i18n[self.monthnames[int(m)-1]], y))
       buffer = form % locals()
       tag.replaceWith(u''.join(buffer))
       return

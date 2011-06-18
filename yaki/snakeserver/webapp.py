@@ -789,7 +789,7 @@ class WebApp(object):
             if not response.used():
                 response.writeHeader()
             out.write("<html><head><title>Server error</title></head><body><hr /><h2>Exception in server</h2>\n")
-            out.write("<h3>Page &quot;"+snk_url+"&quot; caused an error: "+cgi.escape(str(value))+"</h3>\n")
+            out.write("<h3>Route &quot;"+snk_url+"&quot; caused an error: "+cgi.escape(str(value))+"</h3>\n")
             if hasattr(exc, 'Snakelets_extrainfo'):
                 out.write("<h3>Extra information:</h3>"+exc.Snakelets_extrainfo)
             out.write("<H3>Traceback (innermost last):</H3>\n")
