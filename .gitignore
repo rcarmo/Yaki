@@ -3,6 +3,7 @@
 .AppleDouble
 yaki/var/cache/*
 yaki/var/log/*
+yaki/var/index/*
 yaki/var/cache/*
 yaki/var/log/*
 yaki/tmp/*
