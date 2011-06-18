@@ -22,6 +22,7 @@ from webform import *
 #   The REQUEST encapsulation object
 #
 class Request(object):
+    
     def __init__(self,webapp, pathinfo, query, server, ins):
         self.webapp=webapp  # not a weakref, because a request object is short-lived.
         self.ins=ins
@@ -46,7 +47,7 @@ class Request(object):
             self.cookies.load(self.HTTP_COOKIE)
         self.maxPOSTsize=200000  # 200Kbytes 
         self.setEncoding(None)
-
+    
     def _init_query(self, pathinfo, query):
         # this is called by __init__() but also when constructing
         # a new request object as a result of redirection/inclusion
@@ -93,14 +94,17 @@ class Request(object):
     def getReferer(self):       return self.server.headers.getheader('referer') or ''
     def getCookie(self):        return self.HTTP_COOKIE
     def getCookies(self):       return self.cookies
+    
     def clearCookies(self):
         self.HTTP_COOKIE=None
         self.cookies=mycookie.SimpleRequestCookie()
+    
     def getInput(self):         return self.ins
     def getArg(self):           return self.arg
     def setArg(self, arg):      self.arg=arg
     def getWebApp(self):        return self.webapp
     def getRangeStr(self):      return self.server.headers.getheader('range') or ''
+    
     def getRange(self):
         rangeStr=self.getRangeStr()
         if rangeStr:
@@ -116,12 +120,14 @@ class Request(object):
                 raise ValueError("only supports range header in BYTES")
         else:
             return None
-
+    
     def getRealRemoteAddr(self):
         return self.server.headers.get("x-forwarded-for") or self.getRemoteAddr()
+    
     def getAuth(self):              return self.server.headers.getheader('Authorization') or ''
     def getAllHeaders(self):        return self.server.headers
     def getHeader(self, header):    return self.server.headers.getheader(header)  # returns header value, or None
+    
     def getForm(self):
         # return a cached form if it exists (once it has been parsed)
         if self._cgi_form is not None:
@@ -141,8 +147,10 @@ class Request(object):
                 return self._cgi_form
             finally:
                 cgi.maxlen=maxlen
+    
     def getField(self,param,default=''):
         return self.getForm().get(param,default)
+    
     def getParameter(self,param,default=''):
         form=self.getForm()
         if param in form:
@@ -150,29 +158,39 @@ class Request(object):
         if hasattr(self.context, param):
             return getattr(self.context, param)
         return default
+    
     def getContext(self):
         return self.context
+    
     def setSession(self, session):
         self.session=session
+    
     def getSession(self):
         return self.session
+    
     def deleteSession(self):
         self.session.destroy()
         self.clearCookies()
+    
     def getSessionContext(self):
         if self.session:
             return self.session.getContext()
         return None
+    
     def setMaxPOSTsize(self, numbytes):
         self.maxPOSTsize=numbytes
+    
     def getMaxPOSTsize(self):
         return self.maxPOSTsize
+    
     def getEncoding(self):
         return self.charEncoding or self.webapp.defaultRequestEncoding
+    
     def setEncoding(self, encoding):
         if self._cgi_form is not None and self.charEncoding != encoding:
             raise ValueError("cannot change encoding after the request data has been accessed")
         self.charEncoding=encoding
+    
     def getFullQueryArgs(self):
         # use the original, quoted strings.
         qa=self._PATH_INFO or ""
@@ -186,12 +204,11 @@ class Request(object):
             qa+=self.QUERY_STRING
         return qa
 
-
-
 #
 #   The RESPONSE encapsulation object
 #
 class Response(object):
+    
     def __init__(self, webapp, server, outs):
         self.webapp=webapp  # not a weakref, because a response object is short-lived.
         self.server=server
@@ -209,18 +226,23 @@ class Response(object):
         self.userHeaders=NormalizedHeaderDict()
         self.cookies=Cookie.SimpleCookie()
         self.__outputsstack=[]
+    
     def setContentType(self, type):
         self.content_type=type
+    
     def setContentDisposition(self, disposition):
         self.content_disposition=disposition
+    
     def setContentLength(self, length, force=False):
         if not force and self.content_encoding:
             raise IOError("cannot set content length if a custom output encoding has been specified")
         self.content_length=length
         if self.server:
             self.server.content_length=length
+    
     def getEncoding(self):
         return self.content_encoding
+    
     def setEncoding(self, encoding):
         if self.__being_redirected or self.content_encoding==encoding:
             # We're being used in a redirection/inclusion, or the specified encoding
@@ -233,18 +255,24 @@ class Response(object):
             self.outs=codecs.getwriter(encoding)(self._outs, errors="xmlcharrefreplace")
         else:
             self.outs=self._outs # remove codec
+    
     def forceEncoding(self, encoding):
         # set an encoding. No checks! Danger! Normal usage should be setEncoding.
         self.content_encoding = encoding
+    
     def guessMimeType(self, filename):
         return self.server.guess_type(filename)
+    
     def setHeader(self, header, value):
         self.userHeaders[header]=value
+    
     def getHeader(self, header):
         return self.userHeaders.get(header)
+    
     def setResponse(self, code, msg="Snakelet output follows"):
         self.response_code=code
         self.response_string=msg
+    
     def HTTPredirect(self, URL):
         if self.header_written:
             raise RuntimeError('can not redirect when getOutput() has been called')
@@ -254,6 +282,7 @@ class Response(object):
         out.write("<html><head><title>Redirection</title></head>\n"
                   "<body><h1>Redirection</h1>\nYou're being <a href=\""+URL+"\">redirected</a>.</body></html>")
         self.setRedirectionDone()
+    
     def writeHeader(self):
         # minimalistic HTTP response header
         if self.header_written:
@@ -273,12 +302,14 @@ class Response(object):
             self.server.send_header("Set-Cookie",c.OutputString())
         self.server.end_headers()
         self.header_written=True
+    
     def getOutput(self):
         if self.redirection_performed:
             raise RuntimeError('cannot write after redirect() call')
         if not self.header_written:
             self.writeHeader()
         return self.outs
+    
     def sendError(self, code, message=None):
         if not self.header_written:
             self.error_sent=True
@@ -286,8 +317,10 @@ class Response(object):
             self.server.send_error(code, message, self.userHeaders)
         else:
             raise RuntimeError("cannot send error after header has been written")
+    
     def getCookies(self):
         return self.cookies
+    
     def setCookie(self, name, value, path=None, domain=None, maxAge=None, comment=None, secure=None):
         self.cookies[name]=value
         self.cookies[name]["version"]=1
@@ -309,20 +342,25 @@ class Response(object):
         if comment: self.cookies[name]["comment"]=comment
         if secure: self.cookies[name]["secure"]=secure
         self.userHeaders["P3P"]="CP='CUR ADM OUR NOR STA NID'"    # P3P compact policy
+    
     def delCookie(self, name, path=None, domain=None, comment=None, secure=None):
         # delete the cookie by setting maxAge to zero.
         self.setCookie(name, "", path, domain, 0, comment, secure)
-        
+    
     def setRedirectionDone(self):
         self.__being_redirected=False
         self.redirection_performed=True
+    
     def beingRedirected(self):
         return self.__being_redirected
+    
     def used(self):
         return self.redirection_performed or self.header_written or self.error_sent
+    
     def kill(self):
         self.server.kill()
         self.error_sent=True
+    
     def initiateRedirection(self,url, isInclude=False):
         self.__being_redirected = True
         if self.header_written:
@@ -338,14 +376,18 @@ class Response(object):
                 # See https://bugzilla.mozilla.org/show_bug.cgi?id=109553
                 # So we don't send this header, and all will be right. I hope.
                 # self.userHeaders["Content-Location"]=url
+                
     def wasErrorSent(self):
         return self.error_sent
+    
     def YpushOutput(self, output):
         self.__outputsstack.append(self._outs)  # save old output
         self._outs=self.outs=output
+    
     def YpopOutput(self):
         oldOut = self.__outputsstack.pop()
         self._outs=self.outs=oldOut
+    
     def forceFlush(self, stream):   # force response flush to output stream
         out=self.getOutput()
         stream.flush()
