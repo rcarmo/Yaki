@@ -8,3 +8,7 @@ yaki/var/cache/*
 yaki/var/log/*
 yaki/tmp/*
 
+
+Yaki.xcodeproj/project.xcworkspace/xcuserdata/rcarmo.xcuserdatad/UserInterfaceState.xcuserstate
+
+Yaki.xcodeproj/project.xcworkspace/contents.xcworkspacedata

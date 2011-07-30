@@ -8,27 +8,21 @@ Published under the MIT license.
 """
 
 from snakeserver.snakelet import Snakelet
-
-import os, stat, sys, time, re, codecs
-import cgi, rfc822, urlparse, urllib
+import os, sys, time, rfc822, unittest, urlparse, urllib, re, stat, cgi
+import fetch, simplejson, codecs
 from BeautifulSoup import BeautifulSoup, BeautifulStoneSoup
 from yaki.Page import Page
 from yaki.Store import Store
 from yaki.Utils import *
 from yaki.Layout import *
-from yaki.Locale import *
 import yaki.Plugins
+from yaki.Locale import *
 
 # try to speed up pickle if possible
 try:
   import cPickle as pickle
-except ImportError: # fall back on native version
-  import pickle
-
-try:
-  import json
-except:
-  import simplejson as json
+except ImportError: # fall back on Python version
+  import pickle 
 
 ## Helper functions
 
@@ -36,12 +30,10 @@ def renderReferences(ac,headers):
   """
   Helper function for rendering article references based on a 'Thread' header (if present)
   """
-  
   buffer = []
   if not ac.indexer.done:
     return ""
-  # TODO: Check which header to use
-  if ['thread'] in headers.keys():
+  if ['references'] in headers.keys():
     thread = {}
     for page in headers['thread'].split(','):
       page = page.strip()
@@ -71,8 +63,7 @@ def subRender(c,page,request,response,indexing):
   """
   Invoke rendering for all plugins prior to any other markup expansion
   """
-  
-  soup = BeautifulSoup(page.render(c.defaultmarkup), selfClosingTags=['plugin'], convertEntities=['html','xml'])
+  soup = BeautifulSoup(page.render(c.defaultmarkup), selfClosingTags=['plugin'],convertEntities=['html','xml'])
   for tag in soup('plugin'):
     c.plugins.run(tag, 'plugin', page.headers['name'], soup, request, response, indexing)
   c.plugins.runForAllTags(page.headers['name'], soup, request, response, indexing)
@@ -83,10 +74,8 @@ def renderPage(c, page, request = None, response = None, cache = True, indexing 
   """
   Auxiliary function invoked from Indexer and Engine
   """
-  
   if request is None:
     # page rendered within a feed or batch context
-    # TODO: document cache key prefixes
     key = "soup:" + '_' + page.headers['name']
   else:
     # page rendered for online viewing or indexing
@@ -102,9 +91,9 @@ def renderPage(c, page, request = None, response = None, cache = True, indexing 
         try:
           if (c.cache.mtime(key) + seconds) < time.time():
             del(c.cache[key])
-        except:
+        except KeyError:
           pass
-    try: # check if store is newer than cache
+    try:
       if c.store.mtime(page.headers['name']) > c.cache.mtime(key):
         del(c.cache[key])
         raise KeyError
@@ -120,17 +109,16 @@ def renderPage(c, page, request = None, response = None, cache = True, indexing 
 
 class Attachment(Snakelet):
   """
-  File attachment handler
+  File attachment server (currently spits out files placed alongside the index document on the filesystem)
   """
-  
   def getDescription(self):
     return "Wiki Attachment Locator"
 
   def allowCaching(self):
-    return False # we want to handle it ourselves
+    return True
     
   def requiresSession(self):
-    return self.SESSION_NOT_NEEDED
+    return self.SESSION_DONTCREATE
   
   def serve(self, request, response):
     request.setEncoding("UTF-8")
@@ -141,14 +129,13 @@ class Attachment(Snakelet):
     path = urllib.unquote((request.getPathInfo())[1:])
     (page,attachment) = os.path.split(path)
     c = self.getAppContext()
-    # TODO: change this to allow for retrieving a file handle (or StringIO) from Store,
-    # make caching uniform, and caching the data into a Haystack
+    # TODO: change this to allow for retrieving a file handle from Store
+    # ...and caching the data into a Haystack
     filename = c.store.getAttachmentFilename(page,attachment)
     if os.path.exists(filename) and not os.path.isdir(filename):
       stats = os.stat(filename)
-      maxage = self.getWebApp().getConfigItem('maxage')
-      response.setHeader("Cache-Control",'max-age=%d' % maxage)
-      response.setHeader("Expires", httpTime(time.time() + maxage))
+      response.setHeader("Cache-Control",'max-age=604800')
+      response.setHeader("Expires", httpTime(time.time() + 604800))
       (etag,lmod) = a.create_ETag_LMod_headers(stats.st_mtime, stats.st_size, stats.st_ino)
       response.setHeader("Last-Modified", lmod)
       response.setHeader("Etag", etag)
@@ -156,24 +143,22 @@ class Attachment(Snakelet):
       return
     response.setResponse(404, "Not Found")
     return
-  
-  
-class Thumbnail(Snakelet):
+
+
+class FontPreview(Snakelet):
   """
-  Image thumbnail generator (requires ImageMagick)
+  Font preview server - requires ImageMagick
   """
-  
   def getDescription(self):
-    return "Image thumbnail generator"
+    return "Font preview generator"
 
   def allowCaching(self):
-    return True # we handle it ourselves, too, but it's expensive
-  
+    return True
+
   def requiresSession(self):
-    return self.SESSION_NOT_NEEDED
+    return self.SESSION_DONTCREATE
 
   def serve(self, request, response):
-    # TODO: move the next 8 lines to a decorator
     request.setEncoding("UTF-8")
     response.setEncoding("UTF-8")
     a = self.getWebApp()
@@ -183,25 +168,84 @@ class Thumbnail(Snakelet):
     (page,attachment) = os.path.split(path)
     c = self.getAppContext()
     filename = c.store.getAttachmentFilename(page,attachment)
+    buffer = ''
+    # blindly assume we'll only try to do this for valid font files
+    if os.path.exists(filename) and not os.path.isdir(filename):
+      try:
+        stats = c.cache.stats("fpreview:%s" % filename)
+        buffer = c.cache["fpreview:%s" % filename]
+      except KeyError:
+        print filename
+        if os.path.splitext(filename)[1] in ['.ttf','.otf']:
+          # TODO:  The truly paranoid would say that this would fail on filenames with quotation marks...
+          buffer = os.popen("""convert -font "%s" -size 1024x800 -resize 50%% -gravity center -quality 95 -background white label:'ABCDEFGHIJKLM\\nNOPQRSTUVWXYZ\\nabcdefghijklm\\nnopqrstuvwxyz\\n1234567890' jpeg:-""" % filename, "rb").read()
+        if buffer == '': 
+          response.setResponse(404, "Not Found")
+          return
+        c.cache["fpreview:%s" % filename] = buffer
+        stats = c.cache.stats("fpreview:%s" % filename)
+      response.setContentType("image/jpeg")
+      response.setHeader("Cache-Control",'max-age=86400')
+      response.setHeader("Expires", httpTime(time.time() + 86400))
+      (etag,lmod) = a.create_ETag_LMod_headers(stats[0], stats[1], stats[2])
+      response.setHeader("X-Generator", "ImageMagick")
+      response.setHeader("Last-Modified", lmod)
+      response.setHeader("Etag", etag)
+      response.setEncoding(None)
+      response.getOutput().write(buffer)
+      return
+    response.setResponse(404, "Not Found")
+    return
+
+
+
+class Thumbnail(Snakelet):
+  """
+  Image thumbnail server - requires ImageMagick
+  """
+  def getDescription(self):
+    return "Image thumbnail generator"
+
+  def allowCaching(self):
+    return True # we handle it ourselves, too, but it's expensive
+  
+  def requiresSession(self):
+    return self.SESSION_DONTCREATE
+
+  def serve(self, request, response):
+    request.setEncoding("UTF-8")
+    response.setEncoding("UTF-8")
+    a = self.getWebApp()
+    c = request.getContext()
+    c.fullurl = request.getBaseURL() + request.getFullQueryArgs()
+    path = urllib.unquote((request.getPathInfo())[1:])
+    (page,attachment) = os.path.split(path)
+    c = self.getAppContext()
+    filename = c.store.getAttachmentFilename(page,attachment)
+    # blindly assume we'll only try to do this for valid image files
     if os.path.exists(filename) and not os.path.isdir(filename):
       try:
         stats = c.cache.stats("thumbnail:%s" % filename)
         buffer = c.cache["thumbnail:%s" % filename]
       except KeyError:
-        # Generate a 100x100px thumbnail. TODO: read size from URL (not necessary for now)
-        buffer = os.popen("convert %s -thumbnail x200 -resize '200x<' -resize 50%% -gravity center -crop 100x100+0+0 +repage -quality 95 jpeg:-" % filename, "rb").read()
+        if os.path.splitext(filename)[1] in ['.ttf','.otf']:
+          buffer = os.popen("""convert -font "%s" -size 800x400 -thumbnail x200 -resize '200x<' -resize 50%% -gravity west -crop 100x100+0+0 +repage -quality 95 -background white -flatten label:'AaBb' jpeg:-""" % filename, "rb").read()
+        else:
+        # TODO:  The truly paranoid would say that this would fail on filenames with quotation marks...
+          buffer = os.popen("""convert "%s" -thumbnail x200 -resize '200x<' -resize 50%% -gravity center -crop 100x100+0+0 +repage -quality 95 -background white -flatten jpeg:-""" % filename, "rb").read()
         if buffer == '':
-          return # 404
+          response.setResponse(404, "Not Found")
+          return
         c.cache["thumbnail:%s" % filename] = buffer
         stats = c.cache.stats("thumbnail:%s" % filename)
-      maxage = self.getWebApp().getConfigItem('maxage')
-      response.setHeader("Cache-Control",'max-age=%d' % maxage)
-      response.setHeader("Expires", httpTime(time.time() + maxage))
+      response.setContentType("image/jpeg")
+      response.setHeader("Cache-Control",'max-age=86400')
+      response.setHeader("Expires", httpTime(time.time() + 86400))
       (etag,lmod) = a.create_ETag_LMod_headers(stats[0], stats[1], stats[2])
+      response.setHeader("X-Generator", "ImageMagick")
       response.setHeader("Last-Modified", lmod)
       response.setHeader("Etag", etag)
-      response.setContentType("image/jpeg")
-      response.setEncoding('unicode_internal')
+      response.setEncoding(None)
       response.getOutput().write(buffer)
       return
     response.setResponse(404, "Not Found")
@@ -215,48 +259,47 @@ class Starting(Exception):
 
 
 class Wiki(Snakelet):
-  """
-  Wiki Engine
-  """
-  
+  """Wiki Engine"""
   def getDescription(self):
     return "Wiki Engine"
 
   def allowCaching(self):
-    return False # we want to handle it ourselves
+    return True
 
-  def requiresSession(self):
-    return self.SESSION_WANTED
-  
   def serve(self, request, response):
     request.setEncoding("UTF-8")
     response.setEncoding("UTF-8")
     ac = self.getAppContext()
     a = self.getWebApp()
     if ac.indexer.ready != True:
+      #print "redirecting"
       ac = request.getContext()
       response.setHeader("X-Dialtone",'Busy, Please Hold')
       raise Starting
+      #self.redirect('/error.y', request, response)
+      return
     
     c = request.getContext()
     c.fullurl = request.getBaseURL() + request.getFullQueryArgs()
     self.i18n = yaki.Locale.i18n[ac.locale]
     try:
-      # parse page name out of URL. We assume the primary encoding by convention
+      # parse page name out of URL
       c.path = unicode((request.getPathInfo())[1:],'latin-1')
       
-      # If no specific page is requested, then render the HomePage
+      # If there was no specific page requested, then render the HomePage
       if c.path == '':
         c.path = 'HomePage'
       
-      if not self.getPage(request, response):
-        response.getOutput().write('')
+      # Get the actual page contents
+      page = self.getPage(request, response)
+      # Try to fail gracefully ASAP
+      if page == None:
         return
+        #out = response.getOutput()
+        #print >>out,""
+        #return
 
-      # Get the actual page contents        
-      (c.headers, c.content) = (self.headers, self.content)
-      
-      # Render post metadata first
+      (c.headers, c.content) = page
       c.title = c.headers['title']
       c.postinfo = renderInfo(self.i18n, c.headers)
       author = c.headers['from']
@@ -280,6 +323,7 @@ class Wiki(Snakelet):
         trail = []
         for crumb in r.trail:
           info = ac.indexer.pageinfo[crumb]
+          # add absolute URL prefix to link
           info['link'] = ac.base + info['name']
           trail.append(info)
         c.trail = '<p>' + self.i18n['pagetrail'] + ': ' + pagetrail(trail[-10:]) + '</p>'
@@ -306,6 +350,9 @@ class Wiki(Snakelet):
         m = MAX_AGE_REGEX.match(c.headers['x-cache-control'])
         if m:
           maxage = int(m.group(3))
+      
+      # The Answer, obviously
+      response.setHeader("X-Answer",'42')
             
       # Use cache metadata to generate HTTP headers
       # c.etag, etc. are sent to the template
@@ -318,37 +365,32 @@ class Wiki(Snakelet):
         c.lastmodified =  httpTime(time.time())
         c.cachecontrol = ''
       
-      # The Answer, obviously
-      response.setHeader("X-Answer",'42')
-      response.setHeader("X-RickAstley","Never gonna give you up")
-      
-      # If we're not indexing, then pages should be cached a bit longer to lessen load
+      # If we're not running indexing, then pages should be cached a bit longer
       if ac.indexer.done:
         c.expires = httpTime(time.time() + maxage)
       else:
         c.expires = httpTime(time.time())
             
       # Generate c.comments (nasty side-effect, I know...)
-      formatComments(ac, request, c.path)
+      formatComments(ac,request,c.path)
 
       posttitle = c.title
-      permalink = plainpermalink = u"%s%s" % (ac.base, c.path)
+      rellink = permalink = plainpermalink = u"%s%s" % (ac.base, c.path)
       description = self.i18n['permalink_description']
       c.headers['bookmark'] = request.getBaseURL() + permalink
       if SANITIZE_TITLE_REGEX.match(c.path):
         permalink = permalink + u"#%s" % sanitizeTitle(c.title)
       linkclass = "wikilink"
-      
       # Insert outbound links if necessary
       if "x-link" in c.headers:
         uri = c.headers['x-link']
-        (schema,netloc,path,parameters,query,fragment) = urlparse.urlparse(uri)
+        (schema,netloc,path,parameters,query,fragment) = urlparse.urlparse(urllib.unquote(uri))
         permalink = uri
-        # TODO: check if posttitle should be handled here like so:
         #posttitle = self.i18n[schema]['title'] % {'uri':uri}
         linkclass   = self.i18n['uri_schemas'][schema]['class']
         description = self.i18n['external_link_format'] % cgi.escape(uri)
-
+      else:
+        permalink = request.getBaseURL() + permalink
       # Prepare other data that needs to be inserted in templates
       if "tags" in c.headers:
         tags = c.headers['tags']
@@ -358,7 +400,6 @@ class Wiki(Snakelet):
       postinfo = c.postinfo
       content = c.content
       comments = c.comments
-      # if this is a meta page or has a specific header:
       if c.path[:4] == 'meta' or 'x-hide-metadata' in c.headers.keys():
         date = " "
         metadata = ''
@@ -366,8 +407,6 @@ class Wiki(Snakelet):
         date = plainDate(self.i18n, c.headers['date'])
         metadata = renderEntryMetaData(self.i18n,c.headers,False)
       references = ''
-      rellink = permalink
-      permalink = request.getBaseURL() + permalink
       # Use a simplified format for the HomePage (less cruft)
       if c.path == "HomePage":
         c.postbody = ac.templates['simplified'] % locals()
@@ -375,17 +414,18 @@ class Wiki(Snakelet):
         c.postbody = ac.templates['generic'] % locals()
       c.sitename = ac.siteinfo['sitename']
       c.sitedescription = ac.siteinfo['sitedescription']
+      c.permalink = permalink
       # Output page. Remember that c.stuff goes in as Request parameters
       self.redirect('/wiki.y', request, response)
     except Warning, e:
       c.status = e.value
       (c.headers, c.content) = self.getPage(request, response)
       self.redirect('/wiki.y', request, response)
-    
+  
+  def requiresSession(self):
+    return self.SESSION_DONTCREATE
+  
   def dumpTable(self, request):
-    """
-    dump request headers (for debugging purposes)
-    """
     h=request.getAllHeaders()
     buffer = '<table class="data">'
     i=0
@@ -397,25 +437,27 @@ class Wiki(Snakelet):
     return buffer
   
   def getMarkup(self, request, response):
-    """
-    get actual page markup or an empty page on error
-    """
     path = (request.getPathInfo())[1:]
     c = self.getAppContext()
     try:
       page = c.store.getRevision(path)
     except:
-      page = c.store.getRevision("meta/EmptyPage")
+      if "%" in path: # mis-encoded anchors and stuff
+        try:
+          page = c.store.getRevision(path[:path.find("%")])
+        except:
+          pass
+      else:
+        page = c.store.getRevision("meta/EmptyPage")
     buffer = page.body
     return buffer
   
   def getPage(self, request, response):
-    # TODO: Change this to access Indexer metatada instead of the Store
-    # (this may actually be faster as is, but the Store may stop being a filesystem sometime)
+    """TODO: Change this to access the Indexer instead of the Store"""
     (schema,netloc,path,parameters,query,fragment) = urlparse.urlparse(urllib.unquote((request.getPathInfo())[1:]))
-    # PRO TIP: replace the above with:
+    # replace the above with:
     # path = '/'.join(request.getRequestURL().split('/')[2:])
-    # if the snakelet matches an arbitrary route
+    # if the snakelet matches an arbitrary pattern
     if path == '':
       path = 'HomePage'
     a = self.getWebApp()
@@ -429,52 +471,44 @@ class Wiki(Snakelet):
         our = ac.cache.mtime('soup:' + path)
         if(since > our):
           # Say bye bye
-          response.setHeader("X-Info",'Nope, still the same content')
-          response.setResponse(304, "Not modified")
-          return False
+          response.setResponse(304, "Not Modified")
+          return None
       except KeyError:
         pass
     
     # Check for any standing redirects
     redirect = self.checkRedirects(ac,path)
     if redirect:
-      response.setHeader("X-Info",'Redirecting to app setting %s' % redirect)
       response.HTTPredirect(ac.base + redirect)
-      return False
+      return None
       
     # Check for a URL variant
     try:
       page = ac.store.getRevision(path)
     except IOError:
       alias = ac.indexer.resolveAlias(path, True) # go for approximate matches
+      m = ac.dumbagents.match(request.getUserAgent())
+      if m:
+        response.setResponse(404, "Not Found")
+        return
       if alias != path:
-        response.setHeader("X-Info",'Redirecting to alias %s' % alias)
         response.HTTPredirect(ac.base + alias)
-        return False
+        return
       else:
         page = ac.store.getRevision("meta/EmptyPage")
-        self.headers = page.headers
-        self.content = renderPage(ac,page,request,response,ac.indexer.done)
-        response.setHeader("X-Info",'Rendering empty page')
-        return True
+        return (page.headers, renderPage(ac,page,request,response,ac.indexer.done))
     if 'x-redirect' in page.headers.keys():
       uri = page.headers['x-redirect']
-      (schema,netloc,path,parameters,query,fragment) = urlparse.urlparse(uri)
+      (schema,netloc,path,parameters,query,fragment) = urlparse.urlparse(urllib.unquote(uri))
       if schema in self.i18n['uri_schemas'].keys():
         path = uri
       else:
         path = ac.base + path
-      response.setHeader("X-Info",'Redirecting to in-page redirect %s' % path)
       response.HTTPredirect(path)
-      return False
-    self.headers = page.headers
-    self.content = renderPage(ac,page,request,response,ac.indexer.done)
-    return True
+      return
+    return (page.headers, renderPage(ac,page,request,response,ac.indexer.done))
 
   def checkRedirects(self, appcontext, page):
-    """
-    Checks the current request against a list of predefined app-level redirects
-    """
     try:
       redirects = appcontext.redirects
     except:

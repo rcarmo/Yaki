@@ -352,7 +352,7 @@ class WebApp(object):
             stats = os.stat(fspath)
             hdr = self.handler.headers.getheader('accept-encoding')
             compress = False
-            if hdr and (hdr.find("gzip") != -1) and  filter(fspath.lower().endswith, ['.css','.js','.xml','.html','.htm','.txt']):
+            if hdr and (hdr.find("gzip") != -1) and filter(fspath.lower().endswith, ['.html','.htm','.txt','.rtf','.doc','.js','.css','.xml','.ttf','.otf']):
               compress = True
             if not passthroughResponse or not passthroughResponse.used():
                 (etag,lmod) = self.webapp.create_ETag_LMod_headers(stats.st_mtime, stats.st_size, stats.st_ino)
@@ -508,7 +508,6 @@ class WebApp(object):
             (etag, lmod) = self.create_ETag_LMod_headers(snakelet.getMTime(), 0, id(snakelet))
             response.setHeader("ETag",etag)
             response.setHeader("Last-Modified",lmod)
-            response.setHeader("Pragma","whatever")
             response.setHeader("Cache-Control","public")
             response.setHeader("Expires",response.server.date_time_string(time.time()+60*15))
         else:
@@ -524,7 +523,6 @@ class WebApp(object):
             (etag, lmod) = self.create_ETag_LMod_headers(snakelet.getMTime(), 0, id(snakelet))
             handler.send_header("ETag",etag)
             handler.send_header("Last-Modified",lmod)
-            handler.send_header("Pragma","whatever")
             handler.send_header("Cache-Control","public")
             handler.send_header("Expires", handler.date_time_string(time.time()+60*15))
         else:
@@ -751,6 +749,7 @@ class WebApp(object):
 
     def reportSnakeletException(self, snakelet, exc, handler, out, request, response, errorpage=None):
         # oops something went wrong, print the traceback.
+        errorpage = errorpage or self.defaultErrorPage
         typ, value, tb = sys.exc_info()
         sys.exc_clear()
 
@@ -783,13 +782,13 @@ class WebApp(object):
                 return
             except Exception,x:
                 del tb
-                # OUCH, couldn't redirect to error page. Try using the default error page, if any
-                return self.reportSnakeletException(snakelet,x,handler,out,request,response, self.defaultErrorPage)
+                # OUCH, couldn't redirect to error page
+                return self.reportSnakeletException(snakelet,x,handler,out,request,response,None)
         else:
             if not response.used():
                 response.writeHeader()
             out.write("<html><head><title>Server error</title></head><body><hr /><h2>Exception in server</h2>\n")
-            out.write("<h3>Route &quot;"+snk_url+"&quot; caused an error: "+cgi.escape(str(value))+"</h3>\n")
+            out.write("<h3>Page &quot;"+snk_url+"&quot; caused an error: "+cgi.escape(str(value))+"</h3>\n")
             if hasattr(exc, 'Snakelets_extrainfo'):
                 out.write("<h3>Extra information:</h3>"+exc.Snakelets_extrainfo)
             out.write("<H3>Traceback (innermost last):</H3>\n")
@@ -889,8 +888,18 @@ class WebApp(object):
                 resp.setContentType(contentType)
             if contentDisposition:
                 resp.setContentDisposition(contentDisposition)
-
-            length=output.tell()
+            hdr = req.getHeader('accept-encoding')
+            if hdr and (hdr.find("gzip") != -1):
+                output.seek(0)
+                zbuf = cStringIO.StringIO()
+                zfile = gzip.GzipFile(mode = 'wb',  fileobj = zbuf, compresslevel = zlib.Z_BEST_COMPRESSION)
+                zfile.write(output.read())
+                zfile.close()
+                resp.setHeader("Content-Encoding", "gzip")
+                length = len(zbuf.getvalue())
+                output = zbuf
+            else:
+                length=output.tell()
             output.seek(0)
             resp.setContentLength(length,True)      # force the correct content-length
                 
