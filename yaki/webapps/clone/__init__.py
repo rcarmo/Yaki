@@ -9,7 +9,7 @@ from snakeserver.plugin import ErrorpagePlugin
 import yaki.Haystack, yaki.Engine, yaki.Feeds, yaki.Indexer, yaki.Tracker, yaki.LinkBlog, yaki.Plugins, yaki.Notifier
 
 # configuration for this webapp
-name="Yaki"
+name="Yaki Secondary Wiki"
 vhost="localhost"
 docroot="web"
 defaultRequestEncoding = defaultOutputEncoding = "utf-8"
@@ -108,7 +108,7 @@ def init(webapp):
     c.templates[t] = unicode(codecs.open(os.path.join(webapp.getFileSystemPath(),docroot,c.theme,'templates','%s.txt' % t),'r','utf-8').read().strip())
   print ">> INITIALIZING STORE", webapp
   deployment = webapp.getConfigItem('deployment')
-  root = os.path.join(webapp.getFileSystemPath(),'..','..','content','space1')
+  root = os.path.join(webapp.getFileSystemPath(),'..','..','content','space2')
   print "INFO: using %s as document root" % root
   c.staging = False
   for hostname in deployment.keys():

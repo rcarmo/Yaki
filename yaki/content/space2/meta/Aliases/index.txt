@@ -1,0 +1,162 @@
+From: Rui Carmo
+Date: 2009-10-04 09:35:46
+Previously-Modified: 2010-01-28 23:22:36
+Last-Modified: 2010-08-01 14:58:29 
+X-Index: No
+Title: Aliases
+Tags: meta
+Content-Type: text/x-textile
+
+This page holds direct replacements for shorthand used in WikiLinks that often needs to expand to direct links to external sites or "to other Wikis":meta/InterWikiMap.
+
+Like the "Aliases":meta/Aliases page, this is parsed upon startup and used to populate an internal replacement table, but the main difference here is that you can define both aliases to local pages or to URLs, and have multiple aliases for the same item.
+
+h1. Sites and Companies
+
+<pre>
+Adobe Wikipedia:Adobe_Systems
+Amazon Wikipedia:Amazon.com
+Asus http://www.asus.com
+AOL http://www.aol.com
+INESC http://www.inesc.pt
+IST http://www.ist.utl.pt
+Jaiku Wikipedia:Jaiku
+LG http://www.lge.com
+Last.fm http://last.fm
+LinkedIn http://www.linkedin.com
+Maxtor http://www.maxtor.com
+Opera http://www.opera.com
+Ovi Wikipedia:Ovi_(Nokia)
+Philips http://www.philips.com
+Portugal_Telecom http://www.telecom.pt
+Sanyo http://www.sanyo.com
+Sapo http://www.sapo.pt
+Slashdot http://slashdot.org
+Technorati http://www.technorati.com
+VAX Wikipedia:VAX
+YouTube http://www.youtube.com
+Compaq Wikipedia:Compaq
+Instapaper http://www.instapaper.com
+Macromedia Wikipedia:Macromedia
+Nintendo Wikipedia:Nintendo
+Quora Wikipedia:Quora
+SAP Wikipedia:SAP_AG
+Sybase Wikipedia:Sybase
+Wacom http://www.wacom.com
+</pre>
+
+h1. Apple Stuff
+
+<pre>
+.Mac MobileMe
+Aqua Wikipedia:Aqua_(user_interface)
+Darwin Wikipedia:Darwin_(operating_system)
+G3 Wikipedia:PowerPC_G3
+G4 Wikipedia:PowerPC_G4
+G5 Wikipedia:PowerPC_G5
+MacBU Wikipedia:MacBU
+WWDC Wikipedia:Apple_Worldwide_Developers_Conference
+</pre>
+
+h1. Acronyms and Buzzwords
+
+<pre>
+3G UMTS
+ACPI Wikipedia:Advanced_Configuration_and_Power_Interface
+API Wikipedia:Application_Programming_Interface
+APN Wikipedia:Access_Point_Name
+ARM Wikipedia:ARM_architecture
+ATM Wikipedia:Asynchronous_Transfer_Mode
+Ajax Wikipedia:Ajax_(programming)
+BIOS Wikipedia:BIOS
+Blu-Ray Wikipedia:Blu-Ray
+CGI Wikipedia:Common_Gateway_Interface
+CPU Wikipedia:CPU
+DisplayPort Wikipedia:DisplayPort
+DLNA Wikipedia:DLNA
+DOM Wikipedia:Document_Object_Model
+DRM Wikipedia:Digital_rights_management 
+DSL Wikipedia:DSL
+DVI Wikipedia:Digital_Visual_Interface
+EDGE Wikipedia:Enhanced_Data_Rates_for_GSM_Evolution
+EPUB Wikipedia:Epub
+EV-DO Wikipedia:EV-DO
+GNU Wikipedia:GNU
+GTK http://www.gtk.org
+GUI Wikipedia:GUI
+Gantt Wikipedia:Gantt_chart
+HDMI Wikipedia:HDMI
+HFS Wikipedia:HFS_Plus
+HSUPA HSPA
+HSDPA HSPA
+HSPA Wikipedia:High_Speed_Packet_Access
+HTTP protocols/HTTP
+HTTPS protocols/HTTPS
+ICANN Wikipedia:ICANN
+IDE Wikipedia:Integrated_development_environment
+IPv6 Wikipedia:IPv6
+ISDN Wikipedia:Integrated_Services_Digital_Network
+ISDN:Wikipedia:Integrated_services_digital_network
+ISO Wikipedia:ISO_(disambiguation)
+IrDA Wikipedia:Infrared_Data_Association
+LCD Wikipedia:Liquid_crystal_display
+LOTR Wikipedia:The_Lord_of_the_Rings
+MAPI Wikipedia:Messaging_Application_Programming_Interface
+MemoryStick Wikipedia:Memory_Stick
+Memory_Stick Wikipedia:Memory_Stick
+MP4 Wikipedia:MPEG-4_Part_14
+MPEG Wikipedia:Moving_Picture_Experts_Group
+NDA Wikipedia:Non-disclosure_agreement
+NDIS Wikipedia:Network_Driver_Interface_Specification
+NFS Wikipedia:Network_File_System_(protocol)
+P2P Wikipedia:Peer-to-peer
+PAL Wikipedia:PAL
+PCMCIA Wikipedia:PC_Card
+PDA Wikipedia:Personal_digital_assistant
+PVR Wikipedia:Personal_video_recorder
+Qt Wikipedia:Qt_(framework)
+RAM Wikipedia:RAM
+REST Wikipedia:Representational_State_Transfer
+RDP protocols/RDP
+SDK Wikipedia:SDK
+SSD Wikipedia:Solid-state_drive
+SSID Wikipedia:Service_set_(802.11_network)
+TCP/IP Wikipedia:Internet_Protocol_Suite
+TIFF Wikipedia:Tagged_Image_File_Format
+Trackback Wikipedia:Trackback
+TrueType Wikipedia:TrueType
+UI Wikipedia:User_interface
+UK Wikipedia:United_Kingdom
+UMTS Wikipedia:UMTS
+URL Wikipedia:URL
+US Wikipedia:United_States
+UTF-8 Wikipedia:UTF-8
+Unicode Wikipedia:Unicode
+VRML Wikipedia:VRML
+WebKit Wikipedia:WebKit
+Web_2.0 Wikipedia:Web_2.0
+Wiki Wikipedia:Wiki
+Win32 Wikipedia:Win32
+WYSIWYG Wikipedia:WYSIWYG
+ZIP Wikipedia:ZIP_(file_format)
+Oracle Wikipedia:Oracle_Corporation
+eBook Wikipedia:E-book
+ePub EPUB
+vCalendar Wikipedia:ICalendar
+vCard Wikipedia:VCard
+git Wikipedia:Git_(software)
+Xen Wikipedia:Xen
+</pre>
+
+h1. Concepts
+
+<pre>
+Artificial_Intelligence AI
+Economics Wikipedia:Economics
+Fire Wikipedia:Fire_(instant_messaging_client)
+Geek Wikipedia:Geek
+KISS Wikipedia:K.I.S.S.
+Open_Source Wikipedia:Open_source
+QA Wikipedia:Quality_assurance
+Zen Wikipedia:Zen
+</pre>
