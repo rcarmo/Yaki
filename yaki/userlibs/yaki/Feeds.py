@@ -21,7 +21,6 @@ try:
 except:
   import simplejson as json
 
-
 exclusions = ['^HomePage$','^meta.+']
 sanitize = re.compile('^(blog|links)')
 
@@ -35,10 +34,6 @@ def filtered(name,namespace,exclusions):
 
 
 class Restyler():
-  """
-  Insert inline styles in tags (for styling RSS content)
-  """
-  
   def __init__(self, buffer):
     self.styles = {}
     soup = BeautifulSoup(buffer)
@@ -55,19 +50,16 @@ class Restyler():
       for i in items:
         i['style'] = self.styles[tag]
     return soup
-  
 
 
 class RSS(Snakelet):
   """
-  RSS Feed Generator
+  Feed Generator
   """
-  
   def init(self):
     self.last = 20
     self.ttl = 1800
     self.mimetype = 'application/rss+xml'
-    # fields that need escaping
     self.escaped = ['description','title','author','category','permalink','link','technorati','footer']
 
   def sanitizeItem(self,item):
@@ -85,8 +77,9 @@ class RSS(Snakelet):
   def requiresSession(self):
     return self.SESSION_NOT_NEEDED
   
-  def filterRecent(self):
-    ac = self.getAppContext()
+  def filterRecent(self, request):
+    a = request.getWebApp()
+    ac = a.getContext()
     filter = ''
     if '+' in self.namespace:
       for part in self.namespace.split('+'):
@@ -102,7 +95,8 @@ class RSS(Snakelet):
     return recent
   
   def checkCache(self, request, response):
-    ac = self.getAppContext()
+    a = request.getWebApp()
+    ac = a.getContext()
     now = time.time()
 
     # Try to use the main site URL to avoid trouble with reverse proxying and port numbers
@@ -126,15 +120,15 @@ class RSS(Snakelet):
     except:
       pass
   
-  def buildItems(self, recent):
-    ac = self.getAppContext()
+  def buildItems(self, recent, request):
+    a = request.getWebApp()
+    ac = a.getContext()
     i18n = yaki.Locale.i18n[ac.locale]
     
     items = []
 
     i = 1
     for pagename in recent:
-      ac = self.getAppContext()
       restyler = Restyler(ac.templates['rss-styles'])
       try:
         page = ac.store.getRevision(pagename)
@@ -194,10 +188,10 @@ class RSS(Snakelet):
   def serve(self, request, response):
     request.setEncoding("UTF-8")
     response.setEncoding("UTF-8")
-    a = self.getWebApp()
-    ac = self.getAppContext()
+    a = request.getWebApp()
+    ac = a.getContext()
     s = self.getContext()
-    print "INFO: Serving RSS feed %s to %s (%s)" % (os.path.dirname(request.getRequestURL()), request.getRealRemoteAddr(), request.getUserAgent())
+    print "Serving RSS feed %s to %s (%s)" % (os.path.dirname(request.getRequestURL()), request.getRealRemoteAddr(), request.getUserAgent())
     try:
       self.rewritelinks = a.getConfigItem('feedbehavior')[os.path.dirname(request.getRequestURL())]
     except:
@@ -208,7 +202,7 @@ class RSS(Snakelet):
     sitedescription = ac.siteinfo['sitedescription']
     self.checkCache(request, response)
     builddate = pubdate = httpTime(time.time())
-    rawitems = self.buildItems(self.filterRecent())
+    rawitems = self.buildItems(self.filterRecent(request), request)
     siteurl = self.siteurl
     
     items = []
@@ -252,7 +246,7 @@ class RSS(Snakelet):
 
 class JSON(RSS):
   """
-  JSON Feed Generator
+  Feed Generator
   """
   
   def init(self):
@@ -260,10 +254,11 @@ class JSON(RSS):
     self.ttl = 1800
     self.mimetype = 'application/json'
     self.escaped = ['description','title','author','category','permalink','link','footer']
-  
+
+
   def getDescription(self):
     return "JSON Feed Generator"
-  
+    
   def sanitizeItem(self,item):
     media = []
     for field in item.keys():
@@ -278,12 +273,12 @@ class JSON(RSS):
         item[field] = plaintext.replace('"','\"')
       item['images'] = str(media).replace("'",'"')
     return item
-  
+    
   def serve(self, request, response):
     request.setEncoding("UTF-8")
     response.setEncoding("UTF-8")
-    a = self.getWebApp()
-    ac = self.getAppContext()
+    a = request.getWebApp()
+    ac = a.getContext()
     s = self.getContext()
      
     # locals used by main template
@@ -291,7 +286,7 @@ class JSON(RSS):
     sitedescription = ac.siteinfo['sitedescription']
     self.checkCache(request, response)
     builddate = pubdate = httpTime(time.time())
-    rawitems = self.buildItems(self.filterRecent())
+    rawitems = self.buildItems(self.filterRecent(request), request)
     siteurl = self.siteurl
     
     items=[]
@@ -307,5 +302,5 @@ class JSON(RSS):
     # TODO: add compression
     response.setHeader("Content-Type", self.mimetype)
     response.getOutput().write(buffer)
-  
 
+  

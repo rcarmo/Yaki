@@ -9,7 +9,7 @@ Created by Rui Carmo on 2007-03-21.
 Published under the MIT license.
 """
 from snakeserver.snakelet import Snakelet
-import os, sys, time, datetime, rfc822, unittest, urlparse, urllib, re, hashlib
+import os, sys, time, rfc822, unittest, urlparse, urllib, re, hashlib
 from yaki.Utils import *
 import yaki.Locale
 
@@ -25,10 +25,8 @@ ignorelist = ["^localhost", "^(127|10|192\.168)\.+","^taoofmac.com",
 # Webmail
 "mail.yahoo.com",
 "hotmail.com",
-# Planets
-"www.prt.sc",
-# Social Junk
-"web.pond.pt",
+# Social Networks
+"web.pond.pt", "(www\.)facebook.com", "dabr.co.uk",
 # Other search engines
 "^(tw.search.yahoo.com|aolsearch|uk.ask.com|www.ask.com|ask.com|blogs.icerocket.com)", "^(\w+)\.google\.", 
 "^(search.creativecommons.org|search.naver|search.msn|search.live|a9.com|www.metacrawler.com)",
@@ -46,7 +44,7 @@ class Referrals(Snakelet):
   def init(self):
     s = self.getContext()
     ac = self.getAppContext()    
-    s.refkeys = {}
+    ac.refkeys = {}
     ac.referrers = ReferrerCache(ac,ignorelist,prunelist)
     self.mtime = time.time()
   
@@ -65,13 +63,15 @@ class Referrals(Snakelet):
     now = time.time()
     # pattern is /track/action/key/url
     s = self.getContext()
-    ac = self.getAppContext()
+    a = request.getWebApp()
+    ac = a.getContext()
     referrer = request.getReferer()
     # store a checkpoint of referrer information at the cache's leisure
     ac.referrers.commit()
     #if(preg_match(SITE_REGEXP, $_SERVER["HTTP_REFERER"])) {
     try:
       (dummy,action,key,url) = request.getFullQueryArgs().split('/',3)
+      url = urllib.unquote(url)
     except:
       response.setResponse(404, "Not Found")
       return
@@ -79,20 +79,20 @@ class Referrals(Snakelet):
     if action == "key":
       # current time, up to the second - good enough for most purposes
       now = time.time()
-      # create new entry - use datetime for higher time precision and ensure unique entries
-      refkey = hashlib.sha1(str(datetime.datetime.now()) + referrer).hexdigest()
+      # create new entry
+      refkey = hashlib.sha1(str(now) + referrer).hexdigest()
       # store the key, the time and the local site page we were called from
       (schema,host,path,parameters,query,fragment) = urlparse.urlparse(referrer)
-      s.refkeys[refkey] = (now,path[len(ac.base):])
+      ac.refkeys[refkey] = (now,path[len(ac.base):])
       # wipe out anything older than 30 seconds
       wiped = []
-      for i in s.refkeys.keys():
-        (then,referrer) = s.refkeys[i]
+      for i in ac.refkeys.keys():
+        (then,referrer) = ac.refkeys[i]
         if (now - 30) > then:
           wiped.append(i)
       for i in wiped:
         try:
-          del s.refkeys[i] 
+          del ac.refkeys[i] 
         except:
           pass
       response.setHeader("Content-Type",'text/plain')
@@ -107,15 +107,15 @@ class Referrals(Snakelet):
       # Only track URLs with valid keys and schemas
       if re.match('^[a-f0-9]{40}$',key) and schema in ['http','https']:
         # If we know this key
-        if key in s.refkeys.keys():
-          (now,page) = s.refkeys[key]
+        if key in ac.refkeys.keys():
+          (now,page) = ac.refkeys[key]
           # Check if this is an internal referrer - we may have a siteurl override parameter
           try:
             (schema,host,path,parameters,query,fragment) = urlparse.urlparse(ac.siteinfo['siteurl'])
           except:
             (schema,host,path,parameters,query,fragment) = urlparse.urlparse(request.getBaseURL())
           if host != netloc:
-            ac.referrers.add(url,urllib.unquote(page),now)
+            ac.referrers.add(url,page,now)
       # Keep the remote browser happy
       self.getWebApp().serveStaticFile(self.getWebApp().getDocRootPath() + "/img/1x1t.gif", response, useResponseHeaders=False)
       return
@@ -146,13 +146,11 @@ class ReferrerCache:
     
   def add(self, referrer, page, now):
     referrer = referrer.strip()
-    page = page.strip()
+    page = urllib.unquote(page.strip())
     self.getData()
     if(referrer == '' or page == ''):
       return
-    
     (schema,host,path,parameters,query,fragment) = urlparse.urlparse(referrer)
-
     for i in self.ignorelist:
       if re.match(i, host):
         return

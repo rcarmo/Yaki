@@ -9,7 +9,7 @@ Created by Rui Carmo on 2006-11-12.
 Published under the MIT license.
 """
 
-import os, stat, codecs
+import os, stat, glob, codecs
 import rfc822 # for basic parsing
 from yaki.Page import Page
 from yaki.Utils import *
@@ -18,7 +18,6 @@ BASE_TYPES={
   "txt": "text/plain",
   "html": "text/html",
   "htm": "text/html",
-  "md": "text/x-markdown",
   "markdown": "text/x-markdown",
   "textile": "text/x-textile"
 }
@@ -70,9 +69,15 @@ class Store:
       return os.stat(targetpath)[stat.ST_MTIME]
     return None
   
+  def getAttachments(self, pagename, pattern = '*'):
+    targetpath = self.getPath(pagename)
+    attachments = glob.glob(os.path.join(targetpath,pattern))
+    attachments = map(os.path.basename,filter(lambda x: not os.path.isdir(x), attachments))
+    return attachments
+        
   def isAttachment(self, pagename, attachment):
     """
-    Checks it a given filename is actually attached to a page
+    Checks if a given filename is actually attached to a page
     """
     targetpath = self.getPath(pagename)
     attachment = os.path.join(targetpath,attachment)
@@ -150,7 +155,7 @@ class Store:
         if i in subfolders:
           subfolders.remove(i)
       for base in BASE_FILENAMES:
-        if base in files:
+        if( base in files ):
           # Check for modification date of markup file only
           mtime = os.stat(os.path.join(folder,base))[stat.ST_MTIME]
           # Add each path (removing the self.path prefix)

@@ -123,15 +123,15 @@ class Attachment(Snakelet):
   def serve(self, request, response):
     request.setEncoding("UTF-8")
     response.setEncoding("UTF-8")
-    a = self.getWebApp()
+    a = request.getWebApp()
     c = request.getContext()
     c.fullurl = request.getBaseURL() + request.getFullQueryArgs()
     path = urllib.unquote((request.getPathInfo())[1:])
     (page,attachment) = os.path.split(path)
-    c = self.getAppContext()
+    ac = a.getContext()
     # TODO: change this to allow for retrieving a file handle from Store
     # ...and caching the data into a Haystack
-    filename = c.store.getAttachmentFilename(page,attachment)
+    filename = ac.store.getAttachmentFilename(page,attachment)
     if os.path.exists(filename) and not os.path.isdir(filename):
       stats = os.stat(filename)
       response.setHeader("Cache-Control",'max-age=604800')
@@ -161,13 +161,13 @@ class FontPreview(Snakelet):
   def serve(self, request, response):
     request.setEncoding("UTF-8")
     response.setEncoding("UTF-8")
-    a = self.getWebApp()
+    a = request.getWebApp()
     c = request.getContext()
     c.fullurl = request.getBaseURL() + request.getFullQueryArgs()
     path = urllib.unquote((request.getPathInfo())[1:])
     (page,attachment) = os.path.split(path)
-    c = self.getAppContext()
-    filename = c.store.getAttachmentFilename(page,attachment)
+    ac = a.getContext()
+    filename = ac.store.getAttachmentFilename(page,attachment)
     buffer = ''
     # blindly assume we'll only try to do this for valid font files
     if os.path.exists(filename) and not os.path.isdir(filename):
@@ -215,13 +215,13 @@ class Thumbnail(Snakelet):
   def serve(self, request, response):
     request.setEncoding("UTF-8")
     response.setEncoding("UTF-8")
-    a = self.getWebApp()
+    a = request.getWebApp()
     c = request.getContext()
     c.fullurl = request.getBaseURL() + request.getFullQueryArgs()
     path = urllib.unquote((request.getPathInfo())[1:])
     (page,attachment) = os.path.split(path)
-    c = self.getAppContext()
-    filename = c.store.getAttachmentFilename(page,attachment)
+    ac = self.getContext()
+    filename = ac.store.getAttachmentFilename(page,attachment)
     # blindly assume we'll only try to do this for valid image files
     if os.path.exists(filename) and not os.path.isdir(filename):
       try:
@@ -229,7 +229,7 @@ class Thumbnail(Snakelet):
         buffer = c.cache["thumbnail:%s" % filename]
       except KeyError:
         if os.path.splitext(filename)[1] in ['.ttf','.otf']:
-          buffer = os.popen("""convert -font "%s" -size 800x400 -thumbnail x200 -resize '200x<' -resize 50%% -gravity west -crop 100x100+0+0 +repage -quality 95 -background white -flatten label:'AaBb' jpeg:-""" % filename, "rb").read()
+          buffer = os.popen("""convert -font "%s" -size 800x400 -thumbnail x200 -resize '200x<' -resize 50%% -gravity center -crop 100x100+0+0 +repage -quality 95 -background white -flatten label:'  Aa  ' jpeg:-""" % filename, "rb").read()
         else:
         # TODO:  The truly paranoid would say that this would fail on filenames with quotation marks...
           buffer = os.popen("""convert "%s" -thumbnail x200 -resize '200x<' -resize 50%% -gravity center -crop 100x100+0+0 +repage -quality 95 -background white -flatten jpeg:-""" % filename, "rb").read()
@@ -269,8 +269,8 @@ class Wiki(Snakelet):
   def serve(self, request, response):
     request.setEncoding("UTF-8")
     response.setEncoding("UTF-8")
-    ac = self.getAppContext()
-    a = self.getWebApp()
+    a = request.getWebApp()
+    ac = a.getContext()
     if ac.indexer.ready != True:
       #print "redirecting"
       ac = request.getContext()
@@ -344,7 +344,7 @@ class Wiki(Snakelet):
       except KeyError:
         c.seealso = '<div class="warning">' + self.i18n['indexing_message'] + '</div>'
           
-      maxage = self.getWebApp().getConfigItem('maxage')
+      maxage = request.getWebApp().getConfigItem('maxage')
       if 'x-cache-control' in c.headers.keys():
         c.cachecontrol = "public, " + c.headers['x-cache-control']
         m = MAX_AGE_REGEX.match(c.headers['x-cache-control'])
@@ -438,17 +438,18 @@ class Wiki(Snakelet):
   
   def getMarkup(self, request, response):
     path = (request.getPathInfo())[1:]
-    c = self.getAppContext()
+    a = request.getWebApp()
+    ac = a.getContext()
     try:
-      page = c.store.getRevision(path)
+      page = ac.store.getRevision(path)
     except:
       if "%" in path: # mis-encoded anchors and stuff
         try:
-          page = c.store.getRevision(path[:path.find("%")])
+          page = ac.store.getRevision(path[:path.find("%")])
         except:
           pass
       else:
-        page = c.store.getRevision("meta/EmptyPage")
+        page = ac.store.getRevision("meta/EmptyPage")
     buffer = page.body
     return buffer
   
@@ -460,8 +461,8 @@ class Wiki(Snakelet):
     # if the snakelet matches an arbitrary pattern
     if path == '':
       path = 'HomePage'
-    a = self.getWebApp()
-    ac = self.getAppContext()
+    a = request.getWebApp()
+    ac = a.getContext()
     ac.indexer.registerHit(path)
     buffer = request.getHeader('If-Modified-Since')
     if buffer != None:
