@@ -487,11 +487,16 @@ class Wiki(Snakelet):
     try:
       page = ac.store.getRevision(path)
     except IOError:
-      alias = ac.indexer.resolveAlias(path, True) # go for approximate matches
-      m = ac.dumbagents.match(request.getUserAgent())
-      if m:
-        response.setResponse(404, "Not Found")
-        return
+      # go for approximate matches
+      alias = ac.indexer.resolveAlias(path, True)
+      # Check if we have a list of dumb UAs that need special handling (i.e., blocking)
+      try:
+        m = ac.dumbagents.match(request.getUserAgent())
+        if m:
+          response.setResponse(404, "Not Found")
+          return
+      except AttributeError:
+        pass
       if alias != path:
         response.HTTPredirect(ac.base + alias)
         return
