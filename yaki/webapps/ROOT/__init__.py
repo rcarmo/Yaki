@@ -19,8 +19,9 @@ sessionTimeoutSecs=1800
 # for URL generation and basic setup - must match webapps/__init__.py if you're using vhosts, otherwise you'll get mis-formatted URLs
 vhost="localhost"
 
-# This is where page templates go
-docroot="../../../web"
+# This is where page templates and themes go
+# (path is relative to this file)
+docroot="../../../web/main"
 
 # templates for HTML snippets
 templates = ['generic', 'simplified', 'journal', 'linkblog', 'linkblog-with-thumbnail', 'linkblog-with-quicklook', 'comments-link', 'comments-enabled', 'comments-soon', 'comments-disabled', 'rss-feed', 'rss-item', 'rss-item-update', 'rss-footer', 'rss-styles', 'error-page', 'json-item']
@@ -51,6 +52,7 @@ configItems = {
   # match hostnames to deployment settings
   # staging: True disables full text indexing
   "deployment": {
+    # page store
     ".+": {"store": "../../../pages/main", "staging": False }
   },
   # Theme
@@ -101,8 +103,9 @@ class YakiErrorpagePlugin(ErrorpagePlugin):
 def init(webapp):
   log.info("Initializing webapp %s" % webapp)
   home = os.environ.get("HOME","")
-  hashroot = os.path.join(webapp.getFileSystemPath(),'..','..','var',name)
+  hashroot = os.path.normpath(os.path.join(webapp.getFileSystemPath(),'..','..','var',name))
   c = webapp.getContext()
+  c.name = name
   # Bulk setting of attributes based on config items above
   for i in ['base','commentwindow','defaultmarkup','locale','fontpreview','media','thumb','namespaces','theme','redirects','siteinfo','dumbagents']:
     setattr(c,i,webapp.getConfigItem(i))

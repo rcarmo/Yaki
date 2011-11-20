@@ -1,1 +1,0 @@
-<div style="-webkit-border-radius: 8px; background-color: #ccf; color: #000; border: 1px solid #aaf; margin: 0; padding: 3px; overflow: hidden;"><i>This is an update to an item originally published on %(origdate)s.</i></div><br clear="all"/>

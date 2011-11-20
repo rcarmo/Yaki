@@ -438,9 +438,9 @@ class Wiki(Snakelet):
       c.status = e.value
       (c.headers, c.content) = self.getPage(request, response)
       #self.redirect('/wiki.y', request, response)
-  # Output page. Remember that c.stuff goes in as Request parameters
-    log.debug("hit")
-    self.redirect('/%s/%s' % (ac.theme, template), request, response)
+    # Output page. Remember that c.stuff goes in as Request parameters
+    log.debug(ac.name + ' ' + a.getDocRootPath() + ' /%s/%s' % (ac.theme, template))
+    self.redirect('%s/%s' % (ac.theme, template), request, response)
   
   def requiresSession(self):
     return self.SESSION_DONTCREATE
