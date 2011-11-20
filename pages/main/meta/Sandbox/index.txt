@@ -1,0 +1,19 @@
+From: Rui Carmo
+Title: Sandbox
+Content-Type: text/x-textile
+X-Index: no
+X-Cache-Control: max-age=1
+
+This page may break suddenly - it's supposed to, since it's the sandbox where I try out new plugins and other tidbits.
+
+Here's the last blog post:
+
+<plugin name="Journal" size="1" src="^blog\/.+"/>
+
+And now, the 3-4 previous posts before that:
+
+<plugin name="latestentries" size="4" src="^blog\/.+"/>
+
+And finally, a more compact linkblog format (to be used as a single horizontal row later on):
+
+<plugin name="latestlinks" size="5" src="^links\/.+"/>

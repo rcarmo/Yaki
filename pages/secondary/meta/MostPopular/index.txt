@@ -1,0 +1,11 @@
+From: Rui Carmo
+Title: Most Popular
+Content-Type: text/x-textile
+X-Index: No
+X-Cache-Control: max-age=300
+
+The following table lists pages in descending order of popularity:
+
+<plugin name="mostpopular"/>
+
+*Note:* <small>Hit counts are relative to last "Yaki":Projects/Yaki restart and merely an approximation, since they require visitors to have "JavaScript":JavaScript enabled and finish loading all page content. Data is cached for 5 minutes.</small>

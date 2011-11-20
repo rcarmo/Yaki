@@ -1,0 +1,50 @@
+# go away
+User-agent: TopBlogsInfo
+Disallow: /
+
+User-agent: spbot
+Disallow: /
+
+User-agent: attributor
+Disallow: /
+
+User-agent: psbot
+Disallow: /
+
+User-agent: MSRBOT
+Disallow: /
+
+User-agent: SiteSucker
+Disallow: /
+
+User-agent: Scooter
+Disallow: /
+
+User-agent: ZyBorg
+Disallow: /
+
+User-agent: Slurp
+Disallow: /
+
+User-agent: Google
+Disallow: /js/
+Disallow: /img/
+Disallow: /themes/
+
+User-agent: Pompos
+Disallow: /
+
+User-agent: inetbot
+Disallow: /
+
+User-agent: ia_archiver
+Disallow: /themes/
+Disallow: /images/
+
+User-agent: *
+Disallow: /js/
+Disallow: /img/
+Disallow: /themes/
+Disallow: /media/
+Disallow: /thumbnail/
+Disallow: /space/meta/

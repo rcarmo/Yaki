@@ -1,0 +1,2 @@
+<!-- Insert your Disqus invocations for %(permalink)s here --> 
+Comments enabled for %(window)s days

@@ -1,0 +1,7 @@
+<p>
+<div style="-webkit-border-radius: 8px; font-size: small; background-color: #ccc; color: #000; border: 1px solid #aaa; margin: 0; padding: 3px; overflow: hidden;"><p style="padding; 2px; margin: 2px;"><a title="" href="http://the.taoofmac.com/"><img align="left" alt="Tao of Mac Icon" src="http://the.taoofmac.com/img/pavatar48.png"/></a>
+"<a href="%(permalink)s"><strong>%(title)s</strong></a>" was written by <a href="http://the.taoofmac.com/RuiCarmo">Rui Carmo</a> for <a href="http://the.taoofmac.com">The Tao of Mac</a> and was originally posted on %(origdate)s. Except as noted, it's &copy;2011 Rui Carmo and licensed for reuse under <a href="http://creativecommons.org/licenses/by-nc-nd/3.0/">CC BY-NC-ND 3.0</a>.</p>
+
+<p>Please consider <a href="http://the.taoofmac.com/space/site/Donate">donating</a> to support this site.</p>
+</div>
+</p>

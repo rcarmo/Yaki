@@ -1,0 +1,7 @@
+<div class="archive-entry">
+  <div class="entry-abstract">
+    <div class="entry-title"><h2><a href="%(permalink)s" class="%(linkclass)s" rel="bookmark" title="%(description)s">%(posttitle)s</a></h2></div>
+    <div class="entry-content">%(content)s <a class="wikilink" href="%(permalink)s">Read More</a></div>
+  </div>
+</div>
+<br clear="all"/>

@@ -1,0 +1,12 @@
+<table style="background:transparent; margin: 0px; padding: 0px; border-collapse: collapse;">
+  <tbody>
+    <tr style="font-size: 9pt;border-top: 1px solid #aaa;">
+      <th style="border-bottom: 1px solid black; border-top: 2px solid black; padding: 4px; font-weight: bold;"/>
+    </tr>
+  </tbody>
+  <tbody>
+    <tr style="font-size: 9pt; border-top: 1px solid #aaa;">
+      <td style="min-width: 80px; margin: 0px; padding: 4px; vertical-align: top; border-top: 1px solid #aaa;"/>
+    </tr>
+  </tbody>
+</table>

@@ -1,0 +1,2 @@
+table(linkblogtable).
+|(linkblogthumbnailcell). !cid:%(thumbnailfilename)s!:%(uri)s|%(content)s|

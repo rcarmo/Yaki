@@ -1,0 +1,1 @@
+!cid:%(thumbnailfilename)s!:%(uri)s %(content)s

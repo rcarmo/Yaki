@@ -1,0 +1,15 @@
+From: Rui Carmo
+Title: Sandbox
+Content-Type: text/x-textile
+X-Index: no
+X-Cache-Control: max-age=1
+
+Sandbox
+
+!cid:Snowscape_120.jpg!
+
+!Snowscape_120.jpg!
+
+"link to image without cid":Snowscape_120.jpg
+
+"link to image with cid":cid:Snowscape_120.jpg

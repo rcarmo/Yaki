@@ -1,0 +1,23 @@
+#!/usr/bin/env python
+# encoding: utf-8
+
+import os, sys, re, codecs
+
+name="sample"
+docroot="web" # this will be webapps/sample/web
+sessionTimeoutSecs=1800
+
+# this is where you'll register handlers for different routes
+snakelets= {
+}
+
+# this is where you'll place information your app needs to use
+configItems = {
+  "database": {"key":"value", "key2": ['value']}
+}
+
+# this gets invoked on app server start
+def init(webapp):
+  print "INFO: INIT WEBAPP", webapp
+  # the app context holds objects that persist across requests and sessions 
+  c = webapp.getContext()

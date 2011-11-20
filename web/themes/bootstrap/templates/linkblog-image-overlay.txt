@@ -1,0 +1,1 @@
+<span class="thumb-overlay"><a href="%(link)s" class="%(linkclass)s">%(posttitle)s</a></span>

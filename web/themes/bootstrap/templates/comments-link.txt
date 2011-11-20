@@ -1,0 +1,3 @@
+<a href="%(permalink)s#disqus_thread">View comments</a> (enabled for %(window)s days)
+<script src="http://feeds.feedburner.com/~s/taoofmac/full?i=%(permalink)s" type="text/javascript" charset="utf-8"></script>
+

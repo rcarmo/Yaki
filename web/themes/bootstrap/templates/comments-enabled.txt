@@ -1,0 +1,3 @@
+<div id="disqus_thread"></div><script type="text/javascript" src="http://disqus.com/forums/taoofmac/embed.js"></script><noscript><a href="http://taoofmac.disqus.com/?url=%(permalink)s">View the forum thread.</a></noscript>
+<script src="http://feeds.feedburner.com/~s/taoofmac/full?i=%(permalink)s" type="text/javascript" charset="utf-8"></script>
+<small>Please read the <a href="/space/Comment Policy">Comment Policy</a> before posting.</small>

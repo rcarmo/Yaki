@@ -1,0 +1,2 @@
+table(linkblogtable).
+|(linkblogthumbnailcell). <plugin name="quicklook" src="thumbnail.jpg" alt="large.jpg">|%(content)s|

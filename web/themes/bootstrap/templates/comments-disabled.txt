@@ -1,0 +1,2 @@
+Comments have been automatically closed.
+<script src="http://feeds.feedburner.com/~s/taoofmac/full?i=%(permalink)s" type="text/javascript" charset="utf-8"></script>
