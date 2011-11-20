@@ -31,16 +31,22 @@ Yaki is a filesystem-based wiki that is used as the underpinnings of [The Tao of
 
 ## Requirements
 
-* Python 2.6 (2.7 will work as well, and 2.5 may work with minimal tweaks)
+* Python 2.6 (2.7 will work just as well, and 2.5 may work with minimal tweaks)
 * That's it.
 
 ## License
 
-Yaki is released under the MIT software license. Some third-party libraries in the `userlibs` folder are licensed differently and are included merely to ease deployment.
+Yaki is released under the [MIT License][mit]. Some third-party libraries in the `userlibs` folder are licensed differently and are included merely to ease deployment.
+
+The [Twitter Bootstrap][tb] HTML+CSS which is now used as the default theme is licensed under the [Apache License v2.0][al].
 
 ## Credits
 
-Snakelets was originally developed by Irmen de Jong
+The Snakelets application server was originally developed by [Irmen de Jong][i], and as far as I know this is the only publicly maintained version of it.
 
+[mit]: http://www.opensource.org/licenses/mit-license.php
+[tb]: http://twitter.github.com/bootstrap/
+[al]: http://www.apache.org/licenses/LICENSE-2.0
 [gc]: http://code.google.com/p/yaki/
 [t]: http://the.taoofmac.com
+[i]: http://www.razorvine.net/
