@@ -70,7 +70,6 @@ def subRender(c,page,request,response,indexing):
   for tag in soup('plugin'):
     c.plugins.run(tag, 'plugin', page.headers['name'], soup, request, response, indexing)
   c.plugins.runForAllTags(page.headers['name'], soup, request, response, indexing)
-  log.debug(locals())
   return soup.renderContents().decode('utf-8')
 
 
