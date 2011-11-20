@@ -391,13 +391,11 @@ class Indexer(threading.Thread):
     try:
       s = self.whoosh.searcher()
       qp = QueryParser(field, schema=self.schema)
-      if ":" not in query:
-        query = "title:%s OR %s" % (query, query)
       q = qp.parse(query)
       sc = MultiFacet([ScoreFacet(),FieldFacet("modified", reverse=True)])
       r = s.search(q,limit=limit, sortedby = sc)
     except Exception, e:
-      log.error("ERROR in search: %s" % query, locals())
+      log.error("problem handling query for '%s': %s" % query, locals())
       r = None
     return r
     

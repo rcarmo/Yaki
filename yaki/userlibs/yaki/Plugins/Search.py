@@ -12,6 +12,9 @@ from yaki.Utils import *
 from BeautifulSoup import *
 import re, difflib
 
+import logging
+log=logging.getLogger("Snakelets.logger")
+
 class SearchWikiPlugin(yaki.Plugins.WikiPlugin):
   def __init__(self, registry, webapp):
     self.bound = 20
@@ -34,12 +37,14 @@ class SearchWikiPlugin(yaki.Plugins.WikiPlugin):
       tag.replaceWith(buffer)
       return False
 
-    q = q.strip()
+    q = q.strip() # REMINDER: do not lowercase the string. EVER, because Woosh can do boolean queries.
     try:
       self.ac.notifier.send(self.webapp.getConfigItem('jid'), "Search: %s\n%s -  %s" % (q, request.getRealRemoteAddr(), request.getUserAgent()))
-    except:
+    except Exception, e:
+      log.debug("error during notification: %s", e)
       pass
     
+    # TODO - add some templating to get rid of this inline HTML
     buffer = []
     hits = self.ac.indexer.search(q,limit=20)
     if hits == None or not len(hits):
