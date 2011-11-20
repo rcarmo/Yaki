@@ -194,6 +194,7 @@ class Haystack(dict):
     try:
       item = self._index[key][0]
       self.mutex.release()
+      return item
     except:
       self.mutex.release()
       raise KeyError
