@@ -13,6 +13,7 @@ To make it easier for people to get up and running, I've stabilized the master b
 
 * [Twitter Bootstrap][tb] is now the `ROOT` instance theme (the `minimal` theme is, well, too minimal)
 * Updated some dependencies in `userlib` (mostly [Whoosh][w])
+* Added multiple template support (each page can now specify its own template, provided you add the appropriate `.y` file to your theme folder)
 * Removed just about every `print` statement I saw and changed it to proper `logging` calls (there are a few dotted here and there still, but I'll get to them eventually).
 
 ## Known issues
