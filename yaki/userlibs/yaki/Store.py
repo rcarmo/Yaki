@@ -21,6 +21,8 @@ BASE_TYPES={
   "txt": "text/plain",
   "html": "text/html",
   "htm": "text/html",
+  "md": "text/x-markdown",
+  "mkd": "text/x-markdown",
   "markdown": "text/x-markdown",
   "textile": "text/x-textile"
 }
