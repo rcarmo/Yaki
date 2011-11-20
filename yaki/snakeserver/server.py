@@ -8,7 +8,7 @@
 #
 #############################################################################
 
-import os, time, sys, types, copy, cStringIO, threading
+import os, time, sys, types, copy, cStringIO, threading, traceback
 import urllib, urllib2, socket, select, shutil
 import BaseHTTPServer, mimetypes
 import logging, logging.config
@@ -554,7 +554,6 @@ class MyRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                     self.copyfile(result, self.wfile, False)
             except Exception,x:
                 if isInclude:
-                    import traceback
                     err= "".join(traceback.format_exception(*sys.exc_info()))
                     log.error("problem with including '%s': %s" % (url,err))
                     response.getOutput().write(u"<h1>Problem with including '%s':</h1><h3>%s</h3>" % (url,x))
@@ -715,7 +714,6 @@ class ThreadingHTTPServer(object):
         self.virtualHosts.clear()
         for (virtualhost,webapps) in vhostconfig.virtualhosts.iteritems():
             log.info( "Processing virtual host '%s'" % virtualhost )
-            print "Processing vhost '%s' webapps..." % virtualhost
             if type(webapps) not in (list,tuple):
                 raise ValueError("mapping value must be list of webapp names, but it isn't. vhost='%s'" % virtualhost)
 
@@ -748,7 +746,6 @@ class ThreadingHTTPServer(object):
         for (virtualhost,webname) in vhostconfig.webroots.iteritems():
             if webname:
                 log.info("Processing virtual host '%s' root webapp '%s'" % (virtualhost, webname))
-                print "Processing vhost '%s' root..." % virtualhost
                 if webname in vhostconfig.virtualhosts[virtualhost]:
                     raise ValueError("Web application '%s' occurs both as normal and as ROOT webapp for vhost '%s'" % (webname, virtualhost))
 
@@ -798,6 +795,7 @@ class ThreadingHTTPServer(object):
             WA = webapp.createWebApp(abspath, web, url, (virtualHost, port), self)
         except Exception,x:
             log.error("Error creating webapp: "+str(x))
+            log.error(traceback.format_exc())
             return None
         else:
             if WA:
@@ -1170,8 +1168,13 @@ def createPrivilegedObjects(sock_bindname, sock_port):
 #
 def main(HTTPD_PORT=80, externalPort=None, bindname=None, serverURLprefix='', debugRequests=False,
          precompileYPages=True, writePageSource=False, serverRootDir=None, runAsUser=None, runAsGroup=None, escrow=None, monitor=None):
-
     global log, accesslog, privilegedObjects
+
+    if not os.path.isfile("logging.cfg"):
+    	raise IOError("logging configuration file not found in current directory: logging.cfg")
+    logging.config.fileConfig("logging.cfg")
+    log=logging.getLogger("Snakelets.logger")
+    accesslog=logging.getLogger("Snakelets.logger.accesslog")
 
     if bindname is None:
         bindname=socket.gethostname()
@@ -1181,21 +1184,15 @@ def main(HTTPD_PORT=80, externalPort=None, bindname=None, serverURLprefix='', de
 
     cur_id=util.getCurrentUserAndGroupId()
     if not cur_id:
-        print "Unable to query current user id."
+        log.warning("Unable to query current user id.")
     elif cur_id[0]==0 or cur_id[1]==0:
         raise OSError("Refuses to run as root")
 
     if serverRootDir:
         os.chdir(serverRootDir)
-    print "Server root directory:",os.getcwd()
+    log.info("Server root directory: %s" % os.getcwd())
     if escrow:
-      print "Password key escrow mechanism initialized."
-    print "Configuring logging and installing stdout/stderr logging adapters."
-    if not os.path.isfile("logging.cfg"):
-    	raise IOError("logging configuration file not found in current directory: logging.cfg")
-    logging.config.fileConfig("logging.cfg")
-    log=logging.getLogger("Snakelets.logger")
-    accesslog=logging.getLogger("Snakelets.logger.accesslog")
+      log.info("Password key escrow mechanism initialized.")
 
     class StdoutLogAdapter(object):
         def __init__(self, name):
@@ -1219,7 +1216,6 @@ def main(HTTPD_PORT=80, externalPort=None, bindname=None, serverURLprefix='', de
     try:
         sys.stdout=StdoutLogAdapter("Snakelets.logger.stdout")
         sys.stderr=StdoutLogAdapter("Snakelets.logger.stderr")
-        print "Server is starting! "+SNAKELETS_VERSION
         log.info("-"*40)
         log.info("Server is starting! "+SNAKELETS_VERSION)
 
@@ -1253,8 +1249,7 @@ def main(HTTPD_PORT=80, externalPort=None, bindname=None, serverURLprefix='', de
         sys.stdout.flush()
         sys.stderr.flush()
         sys.stdout, sys.stderr  = orig_stdout, orig_stderr
-    print "The end."
-
+    log.info("Stopped.")
 
 if __name__=="__main__":
     main()

@@ -41,4 +41,4 @@ defaultenabledwebapps=["*"]
 # (specified above) that will be used when the browser
 # doesn't send a Host header.
 
-#defaultvhost = "dev.taoofmac.com"
+#defaultvhost = "localhost"

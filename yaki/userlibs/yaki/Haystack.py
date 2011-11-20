@@ -11,6 +11,8 @@ Published under the MIT license.
 
 from __future__ import generators
 import os,sys,stat,string,urllib,codecs,time,thread,traceback
+import logging
+log=logging.getLogger("Snakelets.logger")
 
 __author__ = ('Rui Carmo http://the.taoofmac.com')
 __revision__ = "$Id$"
@@ -27,7 +29,7 @@ class Haystack(dict):
     self.mutex = thread.allocate_lock()
     self.commitinterval = commit
     self.compactinterval = compact
-    self.path = path
+    self.path = os.path.normpath(path)
     self.basename = basename
     self.cache = os.path.join(self.path,self.basename + '.bin')
     self.index = os.path.join(self.path,self.basename + '.idx')
@@ -50,7 +52,7 @@ class Haystack(dict):
     try:
       self._index = pickle.loads(open(self.index,"rb").read())
     except:
-      #print "Haystack: index retrieval from disk failed."
+      log.debug("Index retrieval from disk failed.")
       self._index = {} # "key": [mtime,length,offset]
     self.created = self.modified = self.compacted = self.committed = time.time()
     self.mutex.release()
@@ -60,7 +62,7 @@ class Haystack(dict):
     self.mutex.acquire()
     open(self.index,"wb").write(pickle.dumps(self._index))
     self.committed = time.time()
-    print "Haystack: index %s commited, %d items." % (self.index, len(self._index.keys()))
+    log.info("Index %s commited, %d items." % (self.index, len(self._index.keys())))
     self.mutex.release()
 
   def purge(self):
@@ -77,7 +79,7 @@ class Haystack(dict):
     self._rebuild()
 
   def _cleanup(self):
-    #print "Haystack: cleanup check."
+    log.debug("Cleanup check.")
     now = time.time()
     if now > (self.committed + self.commitinterval):
       self.commit()
@@ -218,7 +220,7 @@ class Haystack(dict):
     self._index = newindex
     self.mutex.release()
     self.commit()
-    print "Haystack: compacted %s: %d items into %d bytes" % (self.cache, i, size)
+    log.debug("Compacted %s: %d items into %d bytes" % (self.cache, i, size))
 
 if __name__=="__main__":
   c = Haystack('.', commit = 3, compact = 4)

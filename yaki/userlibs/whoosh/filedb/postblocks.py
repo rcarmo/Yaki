@@ -1,21 +1,31 @@
-#===============================================================================
-# Copyright 2011 Matt Chaput
-# 
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# 
-#    http://www.apache.org/licenses/LICENSE-2.0
-# 
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#===============================================================================
+# Copyright 2011 Matt Chaput. All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+#    1. Redistributions of source code must retain the above copyright notice,
+#       this list of conditions and the following disclaimer.
+#
+#    2. Redistributions in binary form must reproduce the above copyright
+#       notice, this list of conditions and the following disclaimer in the
+#       documentation and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY MATT CHAPUT ``AS IS'' AND ANY EXPRESS OR
+# IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+# EVENT SHALL MATT CHAPUT OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA,
+# OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+# LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+# NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+# EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+# The views and conclusions contained in the software and documentation are
+# those of the authors and should not be interpreted as representing official
+# policies, either expressed or implied, of Matt Chaput.
 
 from array import array
-from cPickle import dumps, load, loads
 from struct import Struct
 
 try:
@@ -24,62 +34,81 @@ try:
 except ImportError:
     can_compress = False
 
+from whoosh.compat import dumps, load, loads, xrange, b, u, PY3
 from whoosh.system import _INT_SIZE, _FLOAT_SIZE, pack_uint, IS_LITTLE
 from whoosh.util import utf8decode, length_to_byte, byte_to_length
 
 
 class BlockBase(object):
-    def __init__(self, postfile, stringids=False):
+    def __init__(self, postfile, postingsize, stringids=False, minlength=None,
+                 maxlength=0, maxweight=0, maxwol=0):
         self.postfile = postfile
+        self.postingsize = postingsize
         self.stringids = stringids
-        
-        if stringids:
-            self.ids = []
-        else:
-            self.ids = array("I")
+
+        # Create lists/arrays to hold the ids and weights
+        self.ids = [] if stringids else array("I")
         self.weights = array("f")
-        self.lengths = array("i")
+        # Start off not storing values... if append() is called with a valid
+        # value, we'll replace this with a list
         self.values = None
-    
+
+        self._minlength = minlength  # (as byte)
+        self._maxlength = maxlength  # (as byte)
+        self._maxweight = maxweight
+        self._maxwol = maxwol
+
     def __del__(self):
         try:
             del self.postfile
         except:
             pass
-    
+
     def __len__(self):
         return len(self.ids)
-    
+
     def __nonzero__(self):
         return bool(self.ids)
-    
-    def stats(self):
-        # Calculate block statistics
-        maxweight = max(self.weights)
-        maxwol = 0.0
-        minlength = 0
-        if self.lengths:
-            minlength = min(self.lengths)
-            maxwol = max(w / l for w, l in zip(self.weights, self.lengths))
-        
-        return (maxweight, maxwol, minlength)
-    
+
+    def min_length(self):
+        return byte_to_length(self._minlength or 0)
+
+    def max_length(self):
+        return byte_to_length(self._maxlength)
+
+    def max_weight(self):
+        return self._maxweight
+
+    def max_wol(self):
+        return self._maxwol
+
     def append(self, id, weight, valuestring, dfl):
-        if self.values is None:
-            self.values = []
-        
         self.ids.append(id)
         self.weights.append(weight)
-        self.values.append(valuestring)
+        if weight > self._maxweight:
+            self._maxweight = weight
+
+        if valuestring:
+            if self.values is None:
+                self.values = []
+            self.values.append(valuestring)
+
         if dfl:
-            self.lengths.append(dfl)
+            length_byte = length_to_byte(dfl)
+            if self._minlength is None or length_byte < self._minlength:
+                self._minlength = length_byte
+            if dfl > self._maxlength:
+                self._maxlength = length_byte
+            wol = weight / byte_to_length(length_byte)
+            if wol > self._maxwol:
+                self._maxwol = wol
 
 
 # Current block format
 
 class Block2(BlockBase):
     magic = 1114401586  # "Blk2"
-    
+
     # Offset  Type  Desc
     # ------  ----  -------
     # 0       i     Delta to next block
@@ -91,34 +120,46 @@ class Block2(BlockBase):
     # 12      i     Weights length
     # 16      f     Maximum weight
     # 20      f     Max weight-over-length
-    # 24      f     -Unused
+    # 24      H     -Unused
+    # 26      B     -Unused
+    # 27      B     Maximum length, encoded as byte
     # 28      B     Minimum length, encoded as byte
     #
     # Followed by either an unsigned int or string indicating the last ID in
     # this block
-    _struct = Struct("<iBBcBiifffB")
-    
+    _struct = Struct("<iBBcBiiffHBBB")
+
     @classmethod
-    def from_file(cls, postfile, stringids=False):
+    def from_file(cls, postfile, postingsize, stringids=False):
         start = postfile.tell()
-        block = cls(postfile, stringids=stringids)
+
+        # Read the block header information from the posting file
         header = cls._struct.unpack(postfile.read(cls._struct.size))
-        
+
+        # Create the base block object
+        block = cls(postfile, postingsize, stringids=stringids,
+                    maxweight=header[7], maxwol=header[8],
+                    maxlength=header[11], minlength=header[12])
+
+        # Fill in the attributes needed by this block implementation
         block.nextoffset = start + header[0]
         block.compression = header[1]
         block.postcount = header[2]
         block.typecode = header[3]
         block.idslen = header[5]
         block.weightslen = header[6]
-        block.maxweight = header[7]
-        block.maxwol = header[8]
-        block.minlen = byte_to_length(header[10])
-        
+
+        if PY3:
+            block.typecode = block.typecode.decode('latin-1')
+
+        # Read the "maximum ID" part of the header, based on whether we're
+        # using string IDs
         if stringids:
             block.maxid = load(postfile)
         else:
             block.maxid = postfile.read_uint()
-        
+
+        # The position after the header
         block.dataoffset = postfile.tell()
         return block
 
@@ -127,7 +168,7 @@ class Block2(BlockBase):
         ids_string = self.postfile.map[dataoffset:dataoffset + self.idslen]
         if self.compression:
             ids_string = decompress(ids_string)
-        
+
         if self.stringids:
             ids = loads(ids_string)
         else:
@@ -135,10 +176,10 @@ class Block2(BlockBase):
             ids.fromstring(ids_string)
             if not IS_LITTLE:
                 ids.byteswap()
-        
+
         self.ids = ids
         return ids
-    
+
     def read_weights(self):
         if self.weightslen == 0:
             weights = [1.0] * self.postcount
@@ -151,45 +192,46 @@ class Block2(BlockBase):
             weights.fromstring(weights_string)
             if not IS_LITTLE:
                 weights.byteswap()
-        
+
         self.weights = weights
         return weights
-    
-    def read_values(self, posting_size):
-        if posting_size == 0:
+
+    def read_values(self):
+        postingsize = self.postingsize
+        if postingsize == 0:
             values = [None] * self.postcount
         else:
             offset = self.dataoffset + self.idslen + self.weightslen
             values_string = self.postfile.map[offset:self.nextoffset]
             if self.compression:
                 values_string = decompress(values_string)
-            if posting_size < 0:
+            if postingsize < 0:
                 values = loads(values_string)
             else:
-                values = [values_string[i:i + posting_size]
-                          for i in xrange(0, len(values_string), posting_size)]
-        
+                values = [values_string[i:i + postingsize]
+                          for i in xrange(0, len(values_string), postingsize)]
+
         self.values = values
         return values
-    
-    def to_file(self, postfile, posting_size, compression=3):
+
+    def write(self, compression=3):
+        postfile = self.postfile
         stringids = self.stringids
         ids = self.ids
         weights = self.weights
         values = self.values
         postcount = len(ids)
-        maxweight, maxwol, minlength = self.stats()
-        
+
         if postcount <= 4 or not can_compress:
             compression = 0
-        
+
         # Max ID
         maxid = ids[-1]
         if stringids:
             maxid_string = dumps(maxid, -1)[2:]
         else:
             maxid_string = pack_uint(maxid)
-        
+
         # IDs
         typecode = "I"
         if stringids:
@@ -201,42 +243,44 @@ class Block2(BlockBase):
             elif maxid <= 65535:
                 typecode = "H"
             if typecode != ids.typecode:
-                ids = array(typecode, ids)
+                ids = array(typecode, iter(ids))
             if not IS_LITTLE:
                 ids.byteswap()
             ids_string = ids.tostring()
         if compression:
             ids_string = compress(ids_string, compression)
-        
+
         # Weights
         if all(w == 1.0 for w in weights):
-            weights_string = ''
+            weights_string = b('')
         else:
             if not IS_LITTLE:
                 weights.byteswap()
             weights_string = weights.tostring()
         if weights_string and compression:
             weights_string = compress(weights_string, compression)
-        
+
         # Values
-        if posting_size < 0:
+        postingsize = self.postingsize
+        if postingsize < 0:
             values_string = dumps(values, -1)[2:]
-        elif posting_size == 0:
-            values_string = ''
+        elif postingsize == 0:
+            values_string = b('')
         else:
-            values_string = "".join(values)
+            values_string = b("").join(values)
         if values_string and compression:
             values_string = compress(values_string, compression)
-        
+
         # Header
         flags = 1 if compression else 0
-        minlen_byte = length_to_byte(minlength)
         blocksize = sum((self._struct.size, len(maxid_string), len(ids_string),
                          len(weights_string), len(values_string)))
-        header = self._struct.pack(blocksize, flags, postcount, typecode,
-                                   0, len(ids_string), len(weights_string),
-                                   maxweight, maxwol, 0, minlen_byte)
-        
+        header = self._struct.pack(blocksize, flags, postcount,
+                                   typecode.encode('latin-1'), 0,
+                                   len(ids_string), len(weights_string),
+                                   self.max_weight(), self.max_wol(), 0, 0,
+                                   self._maxlength, self._minlength or 0)
+
         postfile.write(header)
         postfile.write(maxid_string)
         postfile.write(ids_string)
@@ -270,40 +314,40 @@ class Block1(BlockBase):
     #
     # Followed by either an unsigned int or string indicating the last ID in
     # this block
-    
+
     _struct = Struct("!BBHiHHBfffB")
     magic = -48626
-    
+
     @classmethod
     def from_file(cls, postfile, stringids=False):
         pos = postfile.tell()
         block = cls(postfile, stringids=stringids)
-        
+
         encoded_header = postfile.read(cls._struct.size)
         header = cls._struct.unpack(encoded_header)
         (flags, _, _, nextoffset, block.idslen, block.weightslen,
          block.postcount, block.maxweight, block.maxwol, _, minlength) = header
-        
+
         block.nextoffset = pos + nextoffset
         block.minlength = byte_to_length(minlength)
-        
+
         assert block.postcount > 0, "postcount=%r" % block.postcount
-        
+
         if stringids:
             block.maxid = utf8decode(postfile.read_string())[0]
         else:
             block.maxid = postfile.read_uint()
-        
+
         block.dataoffset = postfile.tell()
-        
+
         return block
-    
+
     def read_ids(self):
         postfile = self.postfile
         offset = self.dataoffset
         postcount = self.postcount
         postfile.seek(offset)
-        
+
         if self.stringids:
             rs = postfile.read_string
             ids = [utf8decode(rs())[0] for _ in xrange(postcount)]
@@ -328,7 +372,7 @@ class Block1(BlockBase):
         postfile.seek(offset)
         weightslen = self.weightslen
         postcount = self.postcount
-        
+
         if weightslen == 1:
             weights = None
             newoffset = offset
@@ -341,35 +385,36 @@ class Block1(BlockBase):
         else:
             weights = postfile.get_array(offset, "f", postcount)
             newoffset = offset + _FLOAT_SIZE * postcount
-        
+
         self.weights = weights
         self.values_offset = newoffset
         return weights
 
-    def read_values(self, posting_size):
+    def read_values(self):
         postfile = self.postfile
         startoffset = self.values_offset
         endoffset = self.nextoffset
         postcount = self.postcount
 
-        if posting_size != 0:
+        postingsize = self.postingsize
+        if postingsize != 0:
             values_string = postfile.map[startoffset:endoffset]
-            
+
             if self.weightslen:
                 # Values string is compressed
                 values_string = decompress(values_string)
-            
-            if posting_size < 0:
+
+            if postingsize < 0:
                 # Pull the array of value lengths off the front of the string
                 lengths = array("i")
                 lengths.fromstring(values_string[:_INT_SIZE * postcount])
                 values_string = values_string[_INT_SIZE * postcount:]
-                
+
             # Chop up the block string into individual valuestrings
-            if posting_size > 0:
+            if postingsize > 0:
                 # Format has a fixed posting size, just chop up the values
                 # equally
-                values = [values_string[i * posting_size: i * posting_size + posting_size]
+                values = [values_string[i * postingsize: i * postingsize + postingsize]
                           for i in xrange(postcount)]
             else:
                 # Format has a variable posting size, use the array of lengths
@@ -388,4 +433,5 @@ class Block1(BlockBase):
 
 
 current = Block2
-magic_map = {Block1.magic: Block1, Block2.magic: Block2}
+block_types = (Block1, Block2)
+magic_map = dict((b.magic, b) for b in block_types)

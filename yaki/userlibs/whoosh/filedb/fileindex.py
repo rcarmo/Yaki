@@ -1,28 +1,39 @@
-#===============================================================================
-# Copyright 2009 Matt Chaput
-# 
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# 
-#    http://www.apache.org/licenses/LICENSE-2.0
-# 
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#===============================================================================
+# Copyright 2009 Matt Chaput. All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+#    1. Redistributions of source code must retain the above copyright notice,
+#       this list of conditions and the following disclaimer.
+#
+#    2. Redistributions in binary form must reproduce the above copyright
+#       notice, this list of conditions and the following disclaimer in the
+#       documentation and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY MATT CHAPUT ``AS IS'' AND ANY EXPRESS OR
+# IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+# EVENT SHALL MATT CHAPUT OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA,
+# OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+# LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+# NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+# EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+# The views and conclusions contained in the software and documentation are
+# those of the authors and should not be interpreted as representing official
+# policies, either expressed or implied, of Matt Chaput.
 
-import cPickle
-import re
-import uuid
-from time import time
+import re, sys, uuid
+from time import time, sleep
 from threading import Lock
 
 from whoosh import __version__
+from whoosh.compat import pickle, integer_types, string_type, iteritems
 from whoosh.fields import ensure_schema
-from whoosh.index import Index, EmptyIndexError, IndexVersionError, _DEF_INDEX_NAME
+from whoosh.index import (Index, EmptyIndexError, IndexVersionError,
+                          _DEF_INDEX_NAME)
 from whoosh.reading import EmptyReader, MultiReader
 from whoosh.store import Storage, LockError
 from whoosh.system import _INT_SIZE, _FLOAT_SIZE, _LONG_SIZE
@@ -72,9 +83,8 @@ def _create_index(storage, schema, indexname=_DEF_INDEX_NAME):
     for filename in storage:
         if filename.startswith(prefix):
             storage.delete_file(filename)
-    
+
     schema = ensure_schema(schema)
-    
     # Write a TOC file with an empty list of segments
     _write_toc(storage, schema, indexname, 0, 0, [])
 
@@ -97,7 +107,7 @@ def _write_toc(storage, schema, indexname, gen, segment_counter, segments):
     for num in __version__[:3]:
         stream.write_varint(num)
 
-    stream.write_string(cPickle.dumps(schema, -1))
+    stream.write_string(pickle.dumps(schema, -1))
     stream.write_int(gen)
     stream.write_int(segment_counter)
     stream.write_pickle(segments)
@@ -109,15 +119,16 @@ def _write_toc(storage, schema, indexname, gen, segment_counter, segments):
 
 class Toc(object):
     def __init__(self, **kwargs):
-        for name, value in kwargs.iteritems():
+        for name, value in iteritems(kwargs):
             setattr(self, name, value)
-        
+
 
 def _read_toc(storage, schema, indexname):
     gen = _latest_generation(storage, indexname)
     if gen < 0:
-        raise EmptyIndexError("Index %r does not exist in %r" % (indexname, storage))
-    
+        raise EmptyIndexError("Index %r does not exist in %r"
+                              % (indexname, storage))
+
     # Read the content of this index from the .toc file.
     tocfilename = _toc_filename(indexname, gen)
     stream = storage.open_file(tocfilename)
@@ -126,7 +137,8 @@ def _read_toc(storage, schema, indexname):
         sz = stream.read_varint()
         if sz != target:
             raise IndexError("Index was created on different architecture:"
-                             " saved %s = %s, this computer = %s" % (name, sz, target))
+                             " saved %s = %s, this computer = %s"
+                             % (name, sz, target))
 
     check_size("int", _INT_SIZE)
     check_size("long", _LONG_SIZE)
@@ -138,23 +150,24 @@ def _read_toc(storage, schema, indexname):
     version = stream.read_int()
     if version != _INDEX_VERSION:
         raise IndexVersionError("Can't read format %s" % version, version)
-    release = (stream.read_varint(), stream.read_varint(), stream.read_varint())
-    
+    release = (stream.read_varint(), stream.read_varint(),
+               stream.read_varint())
+
     # If the user supplied a schema object with the constructor, don't load
     # the pickled schema from the saved index.
     if schema:
         stream.skip_string()
     else:
-        schema = cPickle.loads(stream.read_string())
+        schema = pickle.loads(stream.read_string())
     schema = ensure_schema(schema)
-    
+
     # Generation
     index_gen = stream.read_int()
     assert gen == index_gen
-    
+
     segment_counter = stream.read_int()
     segments = stream.read_pickle()
-    
+
     stream.close()
     return Toc(version=version, release=release, schema=schema,
                segment_counter=segment_counter, segments=segments,
@@ -165,11 +178,11 @@ def _next_segment_name(self):
     #Returns the name of the next segment in sequence.
     if self.segment_num_lock is None:
         self.segment_num_lock = Lock()
-    
+
     if self.segment_num_lock.acquire():
         try:
             self.segment_counter += 1
-            return 
+            return
         finally:
             self.segment_num_lock.release()
     else:
@@ -198,7 +211,7 @@ def _clean_files(storage, indexname, gen, segments):
             name = segm.group(1)
             if name not in current_segment_names:
                 todelete.add(filename)
-    
+
     for filename in todelete:
         try:
             storage.delete_file(filename)
@@ -213,16 +226,16 @@ class FileIndex(Index):
     def __init__(self, storage, schema=None, indexname=_DEF_INDEX_NAME):
         if not isinstance(storage, Storage):
             raise ValueError("%r is not a Storage object" % storage)
-        if not isinstance(indexname, (str, unicode)):
+        if not isinstance(indexname, string_type):
             raise ValueError("indexname %r is not a string" % indexname)
-        
+
         if schema:
             schema = ensure_schema(schema)
-        
+
         self.storage = storage
         self._schema = schema
         self.indexname = indexname
-        
+
         # Try reading the TOC to see if it's possible
         _read_toc(self.storage, self._schema, self.indexname)
 
@@ -235,13 +248,13 @@ class FileIndex(Index):
 
     # add_field
     # remove_field
-    
+
     def latest_generation(self):
         return _latest_generation(self.storage, self.indexname)
-    
+
     # refresh
     # up_to_date
-    
+
     def last_modified(self):
         gen = self.latest_generation()
         filename = _toc_filename(self.indexname, gen)
@@ -249,13 +262,13 @@ class FileIndex(Index):
 
     def is_empty(self):
         return len(self._read_toc().segments) == 0
-    
+
     def optimize(self):
         w = self.writer()
         w.commit(optimize=True)
 
     # searcher
-    
+
     def writer(self, **kwargs):
         from whoosh.filedb.filewriting import SegmentWriter
         return SegmentWriter(self, **kwargs)
@@ -264,7 +277,7 @@ class FileIndex(Index):
         """Returns a lock object that you can try to call acquire() on to
         lock the index.
         """
-        
+
         return self.storage.lock(self.indexname + "_" + name)
 
     def _read_toc(self):
@@ -272,10 +285,10 @@ class FileIndex(Index):
 
     def _segments(self):
         return self._read_toc().segments
-    
+
     def _current_schema(self):
         return self._read_toc().schema
-    
+
     @property
     def schema(self):
         return self._current_schema()
@@ -283,26 +296,23 @@ class FileIndex(Index):
     @classmethod
     def _reader(self, storage, schema, segments, generation, reuse=None):
         from whoosh.filedb.filereading import SegmentReader
-        
+
         reusable = {}
         try:
             if len(segments) == 0:
                 # This index has no segments! Return an EmptyReader object,
                 # which simply returns empty or zero to every method
                 return EmptyReader(schema)
-            
+
             if reuse:
                 # Put all atomic readers in a dictionary keyed by their
                 # generation, so we can re-use them if them if possible
-                if reuse.is_atomic():
-                    readers = [reuse]
-                else:
-                    readers = [r for r, offset in reuse.leaf_readers()]
+                readers = [r for r, _ in reuse.leaf_readers()]
                 reusable = dict((r.generation(), r) for r in readers)
-            
+
             # Make a function to open readers, which reuses reusable readers.
             # It removes any readers it reuses from the "reusable" dictionary,
-            # so later we can close any remaining readers.
+            # so later we can close any readers left in the dictionary.
             def segreader(segment):
                 gen = segment.generation
                 if gen in reusable:
@@ -311,7 +321,7 @@ class FileIndex(Index):
                     return r
                 else:
                     return SegmentReader(storage, schema, segment)
-            
+
             if len(segments) == 1:
                 # This index has one segment, so return a SegmentReader object
                 # for the segment
@@ -320,7 +330,7 @@ class FileIndex(Index):
                 # This index has multiple segments, so create a list of
                 # SegmentReaders for the segments, then composite them with a
                 # MultiReader
-                
+
                 readers = [segreader(segment) for segment in segments]
                 return MultiReader(readers, generation=generation)
         finally:
@@ -328,17 +338,23 @@ class FileIndex(Index):
                 r.close()
 
     def reader(self, reuse=None):
-        # Lock the index so nobody can delete a segment while we're in the
-        # middle of creating the reader
-        lock = self.lock("READLOCK")
-        lock.acquire(True)
-        try:
+        retries = 10
+        while retries > 0:
             # Read the information from the TOC file
-            info = self._read_toc()
-            return self._reader(self.storage, info.schema, info.segments,
-                                info.generation, reuse=reuse)
-        finally:
-            lock.release()    
+            try:
+                info = self._read_toc()
+                return self._reader(self.storage, info.schema, info.segments,
+                                    info.generation, reuse=reuse)
+            except IOError:
+                # Presume that we got a "file not found error" because a writer
+                # deleted one of the files just as we were trying to open it,
+                # and so retry a few times before actually raising the
+                # exception
+                e = sys.exc_info()[1]
+                retries -= 1
+                if retries <= 0:
+                    raise e
+                sleep(0.05)
 
 
 class Segment(object):
@@ -355,39 +371,50 @@ class Segment(object):
     along the way).
     """
 
-    EXTENSIONS = {"fieldlengths": "fln", "storedfields": "sto",
-                  "termsindex": "trm", "termposts": "pst",
-                  "vectorindex": "vec", "vectorposts": "vps"}
-    
+    EXTENSIONS = {"dawg": "dag",
+                  "fieldlengths": "fln",
+                  "storedfields": "sto",
+                  "termsindex": "trm",
+                  "termposts": "pst",
+                  "vectorindex": "vec",
+                  "vectorposts": "vps"}
+
     generation = 0
-    
+
     def __init__(self, name, generation, doccount, fieldlength_totals,
-                 fieldlength_maxes, deleted=None):
+                 fieldlength_mins, fieldlength_maxes, deleted=None):
         """
         :param name: The name of the segment (the Index object computes this
             from its name and the generation).
         :param doccount: The maximum document number in the segment.
         :param term_count: Total count of all terms in all documents.
-        :param fieldlength_totals: A dictionary mapping field numbers to the
+        :param fieldlength_totals: A dictionary mapping field names to the
             total number of terms in that field across all documents in the
             segment.
+        :param fieldlength_mins: A dictionary mapping field names to the
+            minimum length of that field across all documents.
+        :param fieldlength_maxes: A dictionary mapping field names to the
+            maximum length of that field across all documents.
         :param deleted: A set of deleted document numbers, or None if no
             deleted documents exist in this segment.
         """
 
-        assert isinstance(name, basestring)
-        assert isinstance(doccount, (int, long))
-        assert fieldlength_totals is None or isinstance(fieldlength_totals, dict), "fl_totals=%r" % fieldlength_totals
-        assert fieldlength_maxes is None or isinstance(fieldlength_maxes, dict), "fl_maxes=%r" % fieldlength_maxes
-        
+        assert isinstance(name, string_type)
+        assert isinstance(doccount, integer_types)
+        assert (fieldlength_totals is None
+                or isinstance(fieldlength_totals, dict))
+        assert fieldlength_maxes is None or isinstance(fieldlength_mins, dict)
+        assert fieldlength_maxes is None or isinstance(fieldlength_maxes, dict)
+
         self.name = name
         self.generation = generation
         self.doccount = doccount
         self.fieldlength_totals = fieldlength_totals
+        self.fieldlength_mins = fieldlength_mins
         self.fieldlength_maxes = fieldlength_maxes
         self.deleted = deleted
         self.uuid = uuid.uuid4()
-        
+
     def __repr__(self):
         return "<%s %r %s>" % (self.__class__.__name__, self.name,
                                getattr(self, "uuid", ""))
@@ -400,13 +427,13 @@ class Segment(object):
             basename = name[:0 - len(ext)]
             if basename in self.EXTENSIONS:
                 return self.make_filename(self.EXTENSIONS[basename])
-        
+
         raise AttributeError(name)
 
     def copy(self):
         return Segment(self.name, self.generation, self.doccount,
-                       self.fieldlength_totals, self.fieldlength_maxes,
-                       self.deleted)
+                       self.fieldlength_totals, self.fieldlength_mins,
+                       self.fieldlength_maxes, self.deleted)
 
     def make_filename(self, ext):
         return "%s.%s" % (self.name, ext)
@@ -448,6 +475,13 @@ class Segment(object):
         """
         return self.fieldlength_totals.get(fieldname, default)
 
+    def min_field_length(self, fieldname, default=0):
+        """Returns the maximum length of the given field in any of the
+        documents in the segment.
+        """
+
+        return self.fieldlength_mins.get(fieldname, default)
+
     def max_field_length(self, fieldname, default=0):
         """Returns the maximum length of the given field in any of the
         documents in the segment.
@@ -476,28 +510,20 @@ class Segment(object):
             return False
         return docnum in self.deleted
 
+    def __eq__(self, other):
+        return self.__class__ is type(other)
 
+    def __lt__(self, other):
+        return type(other) is self.__class__
 
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
+    def __gt__(self, other):
+        return not (self.__lt__(other) or self.__eq__(other))
 
+    def __le__(self, other):
+        return self.__eq__(other) or self.__lt__(other)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    def __ge__(self, other):
+        return self.__eq__(other) or self.__gt__(other)

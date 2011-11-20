@@ -110,7 +110,6 @@ class PluginRegistry(object):
         self.pageProcessorPlugins=SortedPluginDict()
         self.webapps={}
     def load(self, server):
-        print "Loading Plugins..."
         log.info("Loading plugins...")
         self.server=server
         path=os.path.abspath(__file__)
@@ -248,7 +247,6 @@ class PluginRegistry(object):
     def serverStart(self):
         self.__doall(self.serverPlugins.sortedlist,"plug_serverStart", self.server)
     def serverStop(self):
-        print "Stopping Plugins..."
         log.info("Stopping plugins...")
         self.__doall(self.serverPlugins.sortedlist,"plug_serverStop", self.server)
     def sessionCreated(self, webapp, session, request):

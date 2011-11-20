@@ -24,7 +24,7 @@ class XMPPNotifier:
     self.connect()
 
   def connect(self):
-    print ">> INITIALIZING XMPP"
+    print "INFO: INITIALIZING XMPP"
     self.jid = xmpp.protocol.JID(self.username)
     self.cl=xmpp.Client(self.jid.getDomain(),debug=[])
     print "XMPP connect..."

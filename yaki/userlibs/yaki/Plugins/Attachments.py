@@ -6,11 +6,12 @@ Attachments.py
 Created by Rui Carmo on 2007-01-11.
 Published under the MIT license.
 """
-
 import yaki.Engine, yaki.Store, yaki.Locale
 from yaki.Utils import *
 from BeautifulSoup import *
 import re, urlparse, cgi
+import logging
+log=logging.getLogger("Snakelets.logger")
 
 try:
   import cPickle as pickle
@@ -75,9 +76,7 @@ class LinkToAttachmentsWikiPlugin(yaki.Plugins.WikiPlugin):
         uri = tag['href']
       except KeyError:
         return True
-
-      print "INFO: %s, %s" % (pagename, uri)
-
+      log.debug("%s, %s" % (pagename, uri))
       # Try to handle the uri as a schema/path pair
       (schema,netloc,path,parameters,query,fragment) = urlparse.urlparse(uri)
 

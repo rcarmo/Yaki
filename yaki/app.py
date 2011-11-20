@@ -16,7 +16,7 @@ def main(workingdir=None):
   if workingdir:
     os.chdir(workingdir)
 
-  print >>sys.stderr,"%s GMT: serv.py is starting the snakelet server on port %d" % (time.asctime(time.gmtime()), HTTPD_PORT)
+  print >>sys.stderr,"%s GMT Starting server on port %d" % (time.asctime(time.gmtime()), HTTPD_PORT)
 
   snakeserver.server.main(
     HTTPD_PORT=HTTPD_PORT,

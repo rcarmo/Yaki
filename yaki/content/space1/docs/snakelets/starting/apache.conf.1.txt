@@ -1,3 +1,0 @@
-ProxyRequests Off
-ProxyPass /snake/ http://localhost:9080/snake/
-ProxyPassReverse /snake/ http://localhost:9080/snake/

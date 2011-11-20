@@ -643,7 +643,6 @@ class ThreadingHTTPServer:
         self.virtualHosts.clear()
         for (virtualhost,webapps) in vhostconfig.virtualhosts.iteritems():
             log.info( "Processing virtual host '%s'" % virtualhost )
-            print "Processing vhost '%s' webapps..." % virtualhost
             if type(webapps) not in (list,tuple):
                 raise ValueError("mapping value must be list of webapp names, but it isn't. vhost='%s'" % virtualhost)
                 
@@ -670,7 +669,6 @@ class ThreadingHTTPServer:
         for (virtualhost,webname) in vhostconfig.webroots.iteritems():
             if webname:
                 log.info("Processing virtual host '%s' root webapp '%s'" % (virtualhost, webname))
-                print "Processing vhost '%s' root..." % virtualhost
                 WA=self.readWebApp(webname, virtualhost, isRoot=True)
                 if WA:
                     if self.precompileYPages:

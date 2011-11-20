@@ -5,23 +5,33 @@
 import os, codecs, re, socket, Queue
 # Snakelets core
 from snakeserver.plugin import ErrorpagePlugin
+import logging
+log = logging.getLogger("Snakelets.logger")
+
 # Yaki libraries
 import yaki.Haystack, yaki.Engine, yaki.Feeds, yaki.Indexer, yaki.Tracker, yaki.LinkBlog, yaki.Plugins, yaki.Notifier
 
 # configuration for this webapp
 name="Yaki"
-vhost="localhost"
-docroot="web"
 defaultRequestEncoding = defaultOutputEncoding = "utf-8"
 sessionTimeoutSecs=1800
+
+# for URL generation and basic setup - must match webapps/__init__.py if you're using vhosts, otherwise you'll get mis-formatted URLs
+vhost="localhost"
+
+# This is where page templates go
+docroot="../../../web"
+
+# templates for HTML snippets
 templates = ['generic', 'simplified', 'journal', 'linkblog', 'linkblog-with-thumbnail', 'linkblog-with-quicklook', 'comments-link', 'comments-enabled', 'comments-soon', 'comments-disabled', 'rss-feed', 'rss-item', 'rss-item-update', 'rss-footer', 'rss-styles', 'error-page', 'json-item']
+
+# This is the root or primary wiki, so these are top-level routes for URLs
 snakelets= {
-  "space"    : yaki.Engine.Wiki,       # The main Wiki snakelet
-  "media"    : yaki.Engine.Attachment, # The file attachment server
-  "thumbnail": yaki.Engine.Thumbnail,  # The thumbnail server
-  "sponsored": yaki.Feeds.RSS,         # The RSS snakelet
-  "json-data": yaki.Feeds.JSON,        # The JSON snakelet
-  "track"    : yaki.Tracker.Referrals  # Referral Tracker (uses client-side JavaScript)
+  "p": yaki.Engine.Wiki,         # Wiki
+  "m": yaki.Engine.Attachment,   # file attachments
+  "f" : yaki.Engine.FontPreview, # font preview generator
+  "t": yaki.Engine.Thumbnail,    # image thumbnails
+  "r": yaki.Feeds.RSS,           # RSS feeds
 }
 defaultErrorPage = "/error.y"
 
@@ -29,29 +39,29 @@ configItems = {
   "services": { # external stuff requiring authentication
   },
   "feedbehavior": { # whether or not to send external links
-    '/sponsored': 'x-link'
+    '/r': 'x-link'
   },
-  # The site info (for meta tags, RSS, etc.)
+  # Site info (for meta tags, RSS, etc.)
   # the siteurl is used to build absolute URLs
   "siteinfo": {'sitename': 'Yaki', # RSS feeds
                'sitetitle': 'Yaki', # page titles
                'sitedescription': 'Just another Yaki site',
-               'siteurl': 'http://' +  vhost,
-               'ping' : {'technorati':'http://' + vhost}
+               'siteurl': 'http://' +  vhost
   },
-  # Machine names and local pathnames for deployment.
+  # match hostnames to deployment settings
   # staging: True disables full text indexing
-  # store: None defaults to ~yaki/space
   "deployment": {
-    "dummy": {"store": "/home/user/space", "staging": False }
+    ".+": {"store": "../../../pages/main", "staging": False }
   },
   # Theme
-  "theme": "themes/minimal",
+  "theme": "themes/bootstrap",
   # Locale
   "locale": "en_US",
   # The base URLs for Wiki pages and media, used for URL generation
-  "base": "/space/",
-  "media": "/media/",
+  "base": "/p/",
+  "media": "/m/",
+  "thumb": "/t/",
+  "fontpreview": "/f/",
   # Special page prefixes we use in lieu of namespaces
   "namespaces": ['apps','Hardware','HOWTO','meta','dev','tests','docs','blog','people','links','podcast','stories'],
   # default author - you really, really want to change this...
@@ -59,20 +69,21 @@ configItems = {
   # Jabber ID to send notifications to
   "jid": "",
   # default markup - only used if nothing else is specified.
-  "defaultmarkup": "text/x-textile",
+  "defaultmarkup": "text/x-markdown",
   # del.icio.us/Yahoo Pipes feed for linkblog - comment to disable
-  #"linkblog": { 'url': "http://feeds.delicious.com/v2/rss//post:links", 'format': 'rss', 'authors': {'rcarmo':'Rui Carmo'} },
+  # "linkblog": { 'url': "http://feeds.delicious.com/v2/rss/USER/post:links", 'format': 'rss', 'authors': {'USER':'User Name'} },
   # maximum age for HTTP and disk caching
   "maxage": 3600,
   # time frame for enabling comments (blog namespace only, disabled if zero)
   "commentwindow": 15 * 86400,
   # standing redirects for legacy/alternate pathnames
   "redirects" : { # standing redirects
-    'space' : 'HomePage', 
+    'p' : 'start', 
     '^blog\/(\d+)-(\d+)$' : 'blog/\\1/\\2',
     '^blog\/(\d+)-(\d+)-(\d+)$' : 'blog/\\1/\\2/\\3',
     '^blog\/(\d+)-(\d+)-(\d+).(\d+):(\d+)$' : 'blog/\\1/\\2/\\3/\\4\\5'
   },
+  "dumbagents" : re.compile(".*(Apple-PubSub|YandexBot|GoogleBot|msnbot|bingbot|Mediapartners).*", re.IGNORECASE) # User-agents that should not be redirected to alternative URLs and get 404s
 }
 
 class YakiErrorpagePlugin(ErrorpagePlugin):
@@ -88,57 +99,48 @@ class YakiErrorpagePlugin(ErrorpagePlugin):
     return True
 
 def init(webapp):
-  print ">> INIT WEBAPP",webapp
+  log.info("Initializing webapp %s" % webapp)
   home = os.environ.get("HOME","")
+  hashroot = os.path.join(webapp.getFileSystemPath(),'..','..','var',name)
   c = webapp.getContext()
   # Bulk setting of attributes based on config items above
-  for i in ['base','commentwindow','defaultmarkup','locale','media','namespaces','theme','redirects','siteinfo']:
+  for i in ['base','commentwindow','defaultmarkup','locale','fontpreview','media','thumb','namespaces','theme','redirects','siteinfo','dumbagents']:
     setattr(c,i,webapp.getConfigItem(i))
   # Haystacks and file caches of various descriptions
-  cachefolder = os.path.join(webapp.getFileSystemPath(),'../../var/cache')
-  indexfolder = os.path.join(webapp.getFileSystemPath(),'../../var/index')
-  c.cache = yaki.Haystack.Haystack(cachefolder, basename = "pages")
-  c.gzipcache = yaki.Haystack.Haystack(cachefolder, basename = "gzip")
-  c.persistent = yaki.Haystack.Haystack(cachefolder, basename = "persistent")
-  c.indexstate = yaki.Haystack.Haystack(indexfolder, basename = "state")
+  c.cache = yaki.Haystack.Haystack(os.path.join(hashroot,'cache'), basename = "pages")
+  #c.cache.enabled = False
+  c.gzipcache = yaki.Haystack.Haystack(os.path.join(hashroot,'cache'), basename = "gzip")
+  c.persistent = yaki.Haystack.Haystack(os.path.join(hashroot,'persistent'), basename = "stats")
+  c.indexstate = yaki.Haystack.Haystack(os.path.join(hashroot,'index'))
   # Templates (taken from the theme directory)
-  print ">> INITIALIZING TEMPLATES", webapp
+  log.info("%s: init templates" % webapp)
   c.templates = {}
   for t in templates:
     c.templates[t] = unicode(codecs.open(os.path.join(webapp.getFileSystemPath(),docroot,c.theme,'templates','%s.txt' % t),'r','utf-8').read().strip())
-  print ">> INITIALIZING STORE", webapp
+  log.info("%s: init page store" % webapp)
   deployment = webapp.getConfigItem('deployment')
-  root = os.path.join(webapp.getFileSystemPath(),'..','..','content','space1')
-  print "INFO: using %s as document root" % root
   c.staging = False
   for hostname in deployment.keys():
-    if re.match("^%s" % hostname, socket.gethostname()):
-      root = deployment[hostname]['store']
+    if re.match(hostname, socket.gethostname()):
+      pageroot = os.path.normpath(os.path.join(webapp.getFileSystemPath(), deployment[hostname]['store']))
       c.staging = deployment[hostname]['staging']
-  c.store = yaki.Store.Store(root)
-  print "INFO: %s:%s" % (hostname,root)
-  print ">> INITIALIZING YAKI PLUGINS", webapp
+      break
+  c.store = yaki.Store.Store(pageroot)
+  log.info("%s: init wiki plugins" % webapp)
   c.plugins = yaki.Plugins.PluginRegistry(webapp)
-  try:
-    auth = webapp.getConfigItem('services')['xmpp']
-    c.notifier = yaki.Notifier.XMPPNotifier(auth['username'], auth['password'])
-  except:
-    pass
-  #auth = webapp.getConfigItem('services')['twitter']
-  #c.twitter = yaki.Notifier.TwitterNotifier(auth['key'], auth['secret'], os.path.join(webapp.getFileSystemPath(),'tokens','twitter.token'), os.path.join(os.path.expanduser("~"),'var','db','tweets.db'))
-  #print ">> INITIALIZING LINKBLOG IMPORTER", webapp
-  #c.linkblog = yaki.LinkBlog.Importer(webapp)
-  #c.linkblog.start()
-  print ">> INITIALIZING INDEX", webapp
+  log.info("%s: init linkblog importer" % webapp)
+  c.linkblog = yaki.LinkBlog.Importer(webapp)
+  c.linkblog.start()
+  log.info("%s: init indexing" % webapp)
   if c.staging == True:
-    print "INFO: Staging mode. full text indexing is disabled."
-  c.indexer = yaki.Indexer.Indexer(c, indexfolder, c.store, c.cache, c.staging)
+    log.info("%s: staging mode. full text indexing is disabled." % webapp)
+  c.indexer = yaki.Indexer.Indexer(c, hashroot + '/index', c.store, c.cache, c.staging)
   c.indexer.start()
-  print ">> DONE INIT WEBAPP", webapp
+  log.info("%s: ready." % webapp)
 
 def close(webapp):
-  print ">> CLOSE WEBAPP",webapp
+  log.info("%s: shutting down..." % webapp)
   c = webapp.getContext()
   c.indexer.stop()
-  c.notifier.disconnect()
-  print ">> DONE CLOSE WEBAPP",webapp
+  log.info("%s: stopped." % webapp)
+

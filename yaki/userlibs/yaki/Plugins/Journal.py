@@ -13,6 +13,9 @@ from yaki.Utils import *
 from yaki.Layout import *
 from BeautifulSoup import *
 
+import logging
+log=logging.getLogger("Snakelets.logger")
+
 # the meta page from where we'll get hand-picked highlights to render some simple HTML
 # that the site theme will then display on the sidebar
 metaPage = "meta/Highlights" 
@@ -70,7 +73,7 @@ class JournalWikiPlugin(yaki.Plugins.WikiPlugin):
       try:
         page = ac.store.getRevision(name)
       except IOError:
-        print "Journal: could not retrieve %s" % name
+        log.error("Journal: could not retrieve %s" % name)
         continue  
       headers = page.headers
       path = ac.base + name
@@ -105,10 +108,9 @@ class JournalWikiPlugin(yaki.Plugins.WikiPlugin):
         posts.append(ac.templates['journal'] % locals())
     try:
       self.loadHighlights()
-      print "Journal: highlights loaded."
-    except:
-      print "Journal: highlights error:"
-      traceback.print_exc()
+      log.info("Highlights loaded.")
+    except Exception, e:
+      log.error("Error loading highlights: %s" % e)
       pass
     tag.replaceWith(''.join(posts))
 
@@ -117,7 +119,7 @@ class JournalWikiPlugin(yaki.Plugins.WikiPlugin):
     try:
       page = self.ac.store.getRevision(metaPage)
     except:
-      print "WARNING: no %s definitions" % metaPage
+      log.warning("%s missing - no highlights loaded." % metaPage)
       return
     self.highlights = {}
     soup = BeautifulSoup(page.render())

@@ -1,22 +1,34 @@
-#===============================================================================
-# Copyright 2010 Matt Chaput
-# 
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# 
-#    http://www.apache.org/licenses/LICENSE-2.0
-# 
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#===============================================================================
+# Copyright 2010 Matt Chaput. All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+#    1. Redistributions of source code must retain the above copyright notice,
+#       this list of conditions and the following disclaimer.
+#
+#    2. Redistributions in binary form must reproduce the above copyright
+#       notice, this list of conditions and the following disclaimer in the
+#       documentation and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY MATT CHAPUT ``AS IS'' AND ANY EXPRESS OR
+# IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+# EVENT SHALL MATT CHAPUT OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA,
+# OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+# LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+# NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+# EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+# The views and conclusions contained in the software and documentation are
+# those of the authors and should not be interpreted as representing official
+# policies, either expressed or implied, of Matt Chaput.
 
 import struct
 from array import array
 
+from whoosh.compat import long_type, xrange, PY3
 
 _istruct = struct.Struct(">i")
 _qstruct = struct.Struct(">q")
@@ -25,8 +37,8 @@ _ipack, _iunpack = _istruct.pack, _istruct.unpack
 _qpack, _qunpack = _qstruct.pack, _qstruct.unpack
 _dpack, _dunpack = _dstruct.pack, _dstruct.unpack
 
-_max_sortable_int = 4294967295L
-_max_sortable_long = 18446744073709551615L
+_max_sortable_int = long_type(4294967295)
+_max_sortable_long = long_type(18446744073709551615)
 
 
 # Functions for converting numbers to and from sortable representations
@@ -112,15 +124,6 @@ def text_to_float(text, signed=True):
 
 
 # Functions for converting sortable representations to and from text.
-#
-# These functions use hexadecimal strings to encode the numbers, rather than
-# converting them to text using a 7-bit encoding, because while the hex
-# representation uses more space (8 bytes as opposed to 5 bytes for a 32 bit
-# number), it's 5-10 times faster to encode/decode in Python.
-#
-# The functions for 7 bit encoding are still available (to_7bit and from_7bit)
-# if needed.
-
 
 def sortable_int_to_text(x, shift=0):
     if shift:
@@ -163,29 +166,29 @@ def split_range(valsize, step, start, end):
     for the edges of the range are generated at high precision and large blocks
     in the middle are generated at low precision.
     """
-    
+
     shift = 0
     while True:
         diff = 1 << (shift + step)
         mask = ((1 << step) - 1) << shift
         setbits = lambda x: x | ((1 << shift) - 1)
-        
+
         haslower = (start & mask) != 0
         hasupper = (end & mask) != mask
-        
+
         not_mask = ~mask & ((1 << valsize + 1) - 1)
         nextstart = (start + diff if haslower else start) & not_mask
         nextend = (end - diff if hasupper else end) & not_mask
-        
+
         if shift + step >= valsize or nextstart > nextend:
             yield (start, setbits(end), shift)
             break
-        
+
         if haslower:
             yield (start, setbits(start | mask), shift)
         if hasupper:
             yield (end & not_mask, setbits(end), shift)
-        
+
         start = nextstart
         end = nextend
         shift += step
@@ -193,43 +196,46 @@ def split_range(valsize, step, start, end):
 
 def tiered_ranges(numtype, signed, start, end, shift_step, startexcl, endexcl):
     # First, convert the start and end of the range to sortable representations
-    
-    valsize = 32 if numtype is int else 64
-    
+
+    if PY3:
+        valsize = 64
+    else:
+        valsize = 32 if numtype is int else 64
+
     # Convert start and end values to sortable ints
     if start is None:
         start = 0
     else:
-        if numtype is int:
+        if numtype is int and not PY3:
             start = int_to_sortable_int(start, signed)
-        elif numtype is long:
+        elif numtype is long_type:
             start = long_to_sortable_long(start, signed)
         elif numtype is float:
             start = float_to_sortable_long(start, signed)
         if startexcl:
             start += 1
-    
+
     if end is None:
         end = _max_sortable_int if valsize == 32 else _max_sortable_long
     else:
-        if numtype is int:
+        if numtype is int and not PY3:
             end = int_to_sortable_int(end, signed)
-        elif numtype is long:
+        elif numtype is long_type:
             end = long_to_sortable_long(end, signed)
         elif numtype is float:
             end = float_to_sortable_long(end, signed)
         if endexcl:
             end -= 1
-    
-    if numtype is int:
+
+    if numtype is int and not PY3:
         to_text = sortable_int_to_text
     else:
         to_text = sortable_long_to_text
-    
+
     if not shift_step:
         yield (to_text(start), to_text(end))
         return
-    
+
     # Yield the term ranges for the different resolutions
     for rstart, rend, shift in split_range(valsize, shift_step, start, end):
         starttext = to_text(rstart, shift=shift)
@@ -242,7 +248,8 @@ def tiered_ranges(numtype, signed, start, end, shift_step, startexcl, endexcl):
 # Instead of using the character set from the ascii85 algorithm, I put the
 # characters in order so that the encoded text sorts properly (my life would be
 # a lot easier if they had just done that from the start)
-_b85chars = "!$%&*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ^_abcdefghijklmnopqrstuvwxyz{|}~"
+_b85chars = ("!$%&*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+             "^_abcdefghijklmnopqrstuvwxyz{|}~")
 _b85dec = {}
 for i in range(len(_b85chars)):
     _b85dec[_b85chars[i]] = i
@@ -250,7 +257,7 @@ for i in range(len(_b85chars)):
 
 def to_base85(x, islong=False):
     "Encodes the given integer using base 85."
-    
+
     size = 10 if islong else 5
     rems = ""
     for i in xrange(size):

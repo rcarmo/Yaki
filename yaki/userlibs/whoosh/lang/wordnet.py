@@ -1,18 +1,29 @@
-#===============================================================================
-# Copyright 2009 Matt Chaput
-# 
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-# 
-#    http://www.apache.org/licenses/LICENSE-2.0
-# 
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#===============================================================================
+# Copyright 2009 Matt Chaput. All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+#    1. Redistributions of source code must retain the above copyright notice,
+#       this list of conditions and the following disclaimer.
+#
+#    2. Redistributions in binary form must reproduce the above copyright
+#       notice, this list of conditions and the following disclaimer in the
+#       documentation and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY MATT CHAPUT ``AS IS'' AND ANY EXPRESS OR
+# IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+# EVENT SHALL MATT CHAPUT OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA,
+# OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+# LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+# NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+# EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+# The views and conclusions contained in the software and documentation are
+# those of the authors and should not be interpreted as representing official
+# policies, either expressed or implied, of Matt Chaput.
 
 """This module contains low-level functions and a high-level class for parsing
 the prolog file "wn_s.pl" from the WordNet prolog download
@@ -23,6 +34,7 @@ http://wordnetcode.princeton.edu/3.0/WNprolog-3.0.tar.gz
 
 from collections import defaultdict
 
+from whoosh.compat import iterkeys, text_type
 from whoosh.fields import Schema, ID, STORED
 
 
@@ -30,14 +42,14 @@ def parse_file(f):
     """Parses the WordNet wn_s.pl prolog file and returns two dictionaries:
     word2nums and num2words.
     """
-    
+
     word2nums = defaultdict(list)
     num2words = defaultdict(list)
-    
+
     for line in f:
         if not line.startswith("s("):
             continue
-        
+
         line = line[2:]
         num = int(line[:line.find(",")])
         qt = line.find("'")
@@ -47,10 +59,10 @@ def parse_file(f):
 
         if not word.isalpha():
             continue
-        
+
         word2nums[word].append(num)
         num2words[num].append(word)
-    
+
     return word2nums, num2words
 
 
@@ -59,13 +71,13 @@ def make_index(storage, indexname, word2nums, num2words):
     synonyms taken from word2nums and num2words. Returns the Index
     object.
     """
-    
+
     schema = Schema(word=ID, syns=STORED)
     ix = storage.create_index(schema, indexname=indexname)
     w = ix.writer()
-    for word in word2nums.iterkeys():
+    for word in iterkeys(word2nums):
         syns = synonyms(word2nums, num2words, word)
-        w.add_document(word=unicode(word), syns=syns)
+        w.add_document(word=text_type(word), syns=syns)
     w.commit()
     return ix
 
@@ -74,12 +86,12 @@ def synonyms(word2nums, num2words, word):
     """Uses the word2nums and num2words dicts to look up synonyms
     for the given word. Returns a list of synonym strings.
     """
-    
+
     keys = word2nums[word]
     syns = set()
     for key in keys:
         syns = syns.union(num2words[key])
-    
+
     if word in syns:
         syns.remove(word)
     return sorted(syns)
@@ -138,12 +150,12 @@ class Thesaurus(object):
     Basically, if you can afford spending the memory necessary to parse the
     Thesaurus and then cache it, it's faster. Otherwise, use an on-disk index.
     """
-    
+
     def __init__(self):
         self.w2n = None
         self.n2w = None
         self.searcher = None
-    
+
     @classmethod
     def from_file(cls, fileobj):
         """Creates a Thesaurus object from the given file-like object, which should
@@ -154,11 +166,11 @@ class Thesaurus(object):
         >>> t.synonyms("hail")
         ['acclaim', 'come', 'herald']
         """
-        
+
         thes = cls()
         thes.w2n, thes.n2w = parse_file(fileobj)
         return thes
-    
+
     @classmethod
     def from_filename(cls, filename):
         """Creates a Thesaurus object from the given filename, which should
@@ -168,13 +180,13 @@ class Thesaurus(object):
         >>> t.synonyms("hail")
         ['acclaim', 'come', 'herald']
         """
-        
+
         f = open(filename, "rb")
         try:
             return cls.from_file(f)
         finally:
             f.close()
-    
+
     @classmethod
     def from_storage(cls, storage, indexname="THES"):
         """Creates a Thesaurus object from the given storage object,
@@ -191,12 +203,12 @@ class Thesaurus(object):
         :param indexname: A name for the index. This allows you to
             store multiple indexes in the same storage object.
         """
-        
+
         thes = cls()
         index = storage.open_index(indexname=indexname)
         thes.searcher = index.searcher()
         return thes
-    
+
     def to_storage(self, storage, indexname="THES"):
         """Creates am index in the given storage object from the
         synonyms loaded from a WordNet file.
@@ -211,7 +223,7 @@ class Thesaurus(object):
         :param indexname: A name for the index. This allows you to
             store multiple indexes in the same storage object.
         """
-        
+
         if not self.w2n or not self.n2w:
             raise Exception("No synonyms loaded")
         make_index(storage, indexname, self.w2n, self.n2w)
@@ -222,7 +234,7 @@ class Thesaurus(object):
         >>> thesaurus.synonyms("hail")
         ['acclaim', 'come', 'herald']
         """
-        
+
         word = word.lower()
         if self.searcher:
             return self.searcher.document(word=word)["syns"]
@@ -234,25 +246,23 @@ if __name__ == "__main__":
     from time import clock
     from whoosh.filedb.filestore import FileStorage
     st = FileStorage("c:/testindex")
-    
+
 #    t = clock()
 #    th = Thesaurus.from_filename("c:/wordnet/wn_s.pl")
-#    print clock() - t
+#    print(clock() - t)
 #    
 #    t = clock()
 #    th.to_storage(st)
-#    print clock() - t
+#    print(clock() - t)
 #    
 #    t = clock()
 #    print th.synonyms("light")
-#    print clock() - t
-    
+#    print(clock() - t)
+
     t = clock()
     th = Thesaurus.from_storage(st)
-    print clock() - t
-    
+    print(clock() - t)
+
     t = clock()
-    print th.synonyms("hail")
-    print clock() - t
-    
-    
+    print(th.synonyms("hail"))
+    print(clock() - t)

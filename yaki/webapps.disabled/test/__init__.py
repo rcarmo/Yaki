@@ -65,7 +65,7 @@ def authorizeUser(authmethod, url, username, password, request):
         return None
 
 def init(webapp):
-    print ">> INIT WEBAPP",webapp
+    print "INFO: INIT WEBAPP",webapp
     
 def close(webapp):
-    print ">> CLOSE DOWN WEBAPP",webapp
+    print "INFO: CLOSE DOWN WEBAPP",webapp

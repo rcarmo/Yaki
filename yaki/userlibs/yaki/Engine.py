@@ -8,6 +8,9 @@ Published under the MIT license.
 """
 
 from snakeserver.snakelet import Snakelet
+import logging
+log=logging.getLogger("Snakelets.logger")
+
 import os, sys, time, rfc822, unittest, urlparse, urllib, re, stat, cgi
 import fetch, simplejson, codecs
 from BeautifulSoup import BeautifulSoup, BeautifulStoneSoup
@@ -67,6 +70,7 @@ def subRender(c,page,request,response,indexing):
   for tag in soup('plugin'):
     c.plugins.run(tag, 'plugin', page.headers['name'], soup, request, response, indexing)
   c.plugins.runForAllTags(page.headers['name'], soup, request, response, indexing)
+  log.debug(locals())
   return soup.renderContents().decode('utf-8')
 
 
@@ -220,24 +224,24 @@ class Thumbnail(Snakelet):
     c.fullurl = request.getBaseURL() + request.getFullQueryArgs()
     path = urllib.unquote((request.getPathInfo())[1:])
     (page,attachment) = os.path.split(path)
-    ac = self.getContext()
+    ac = a.getContext()
     filename = ac.store.getAttachmentFilename(page,attachment)
     # blindly assume we'll only try to do this for valid image files
     if os.path.exists(filename) and not os.path.isdir(filename):
       try:
-        stats = c.cache.stats("thumbnail:%s" % filename)
-        buffer = c.cache["thumbnail:%s" % filename]
+        stats = ac.cache.stats("thumbnail:%s" % filename)
+        buffer = ac.cache["thumbnail:%s" % filename]
       except KeyError:
         if os.path.splitext(filename)[1] in ['.ttf','.otf']:
-          buffer = os.popen("""convert -font "%s" -size 800x400 -thumbnail x200 -resize '200x<' -resize 50%% -gravity center -crop 100x100+0+0 +repage -quality 95 -background white -flatten label:'  Aa  ' jpeg:-""" % filename, "rb").read()
+          buffer = os.popen("""convert -font "%s" -size 800x400 -thumbnail x320 -resize '320x<' -resize 50%% -gravity center -crop 160x160+0+0 +repage -quality 95 -background white -flatten label:'  Aa  ' jpeg:-""" % filename, "rb").read()
         else:
         # TODO:  The truly paranoid would say that this would fail on filenames with quotation marks...
-          buffer = os.popen("""convert "%s" -thumbnail x200 -resize '200x<' -resize 50%% -gravity center -crop 100x100+0+0 +repage -quality 95 -background white -flatten jpeg:-""" % filename, "rb").read()
+          buffer = os.popen("""convert "%s" -thumbnail x320 -resize '320x<' -resize 50%% -gravity center -crop 160x160+0+0 +repage -quality 95 -background white -flatten jpeg:-""" % filename, "rb").read()
         if buffer == '':
           response.setResponse(404, "Not Found")
           return
-        c.cache["thumbnail:%s" % filename] = buffer
-        stats = c.cache.stats("thumbnail:%s" % filename)
+        ac.cache["thumbnail:%s" % filename] = buffer
+        stats = ac.cache.stats("thumbnail:%s" % filename)
       response.setContentType("image/jpeg")
       response.setHeader("Cache-Control",'max-age=86400')
       response.setHeader("Expires", httpTime(time.time() + 86400))
@@ -272,11 +276,8 @@ class Wiki(Snakelet):
     a = request.getWebApp()
     ac = a.getContext()
     if ac.indexer.ready != True:
-      #print "redirecting"
-      ac = request.getContext()
       response.setHeader("X-Dialtone",'Busy, Please Hold')
       raise Starting
-      #self.redirect('/error.y', request, response)
       return
     
     c = request.getContext()
@@ -375,27 +376,38 @@ class Wiki(Snakelet):
       formatComments(ac,request,c.path)
 
       posttitle = c.title
-      rellink = permalink = plainpermalink = u"%s%s" % (ac.base, c.path)
+      link = rellink = permalink = plainpermalink = u"%s%s" % (ac.base, c.path)
       description = self.i18n['permalink_description']
       c.headers['bookmark'] = request.getBaseURL() + permalink
       if SANITIZE_TITLE_REGEX.match(c.path):
         permalink = permalink + u"#%s" % sanitizeTitle(c.title)
+
       linkclass = "wikilink"
       # Insert outbound links if necessary
       if "x-link" in c.headers:
         uri = c.headers['x-link']
         (schema,netloc,path,parameters,query,fragment) = urlparse.urlparse(urllib.unquote(uri))
-        permalink = uri
+        link = uri
         #posttitle = self.i18n[schema]['title'] % {'uri':uri}
         linkclass   = self.i18n['uri_schemas'][schema]['class']
         description = self.i18n['external_link_format'] % cgi.escape(uri)
       else:
         permalink = request.getBaseURL() + permalink
+
+      # Check for custom page templates
+      template = "index.y"
+      if "x-template" in c.headers:
+        # we will only accept templates inside the theme folder
+        filename = os.path.join(a.getDocRootPath(),ac.theme,os.path.basename(c.headers['x-template']))
+        if os.path.exists(filename) and not os.path.isdir(filename):
+          template = os.path.basename(c.headers['x-template'])
+
       # Prepare other data that needs to be inserted in templates
       if "tags" in c.headers:
         tags = c.headers['tags']
       else:
         tags = ''
+
       c.keywords = tags # TODO: add more semantic data here
       postinfo = c.postinfo
       content = c.content
@@ -408,19 +420,28 @@ class Wiki(Snakelet):
         metadata = renderEntryMetaData(self.i18n,c.headers,False)
       references = ''
       # Use a simplified format for the HomePage (less cruft)
+      c.permalink = permalink
       if c.path == "HomePage":
         c.postbody = ac.templates['simplified'] % locals()
+      elif 'links' in c.path:
+        try:
+          if c.path.index('links') == 0:
+            link = uri
+            c.postbody = ac.templates['linkblog'] % locals()
+        except:
+          c.postbody = ac.templates['generic'] % locals()
+          pass
       else:
         c.postbody = ac.templates['generic'] % locals()
       c.sitename = ac.siteinfo['sitename']
       c.sitedescription = ac.siteinfo['sitedescription']
-      c.permalink = permalink
-      # Output page. Remember that c.stuff goes in as Request parameters
-      self.redirect('/wiki.y', request, response)
     except Warning, e:
       c.status = e.value
       (c.headers, c.content) = self.getPage(request, response)
-      self.redirect('/wiki.y', request, response)
+      #self.redirect('/wiki.y', request, response)
+  # Output page. Remember that c.stuff goes in as Request parameters
+    log.debug("hit")
+    self.redirect('/%s/%s' % (ac.theme, template), request, response)
   
   def requiresSession(self):
     return self.SESSION_DONTCREATE
@@ -487,16 +508,11 @@ class Wiki(Snakelet):
     try:
       page = ac.store.getRevision(path)
     except IOError:
-      # go for approximate matches
-      alias = ac.indexer.resolveAlias(path, True)
-      # Check if we have a list of dumb UAs that need special handling (i.e., blocking)
-      try:
-        m = ac.dumbagents.match(request.getUserAgent())
-        if m:
-          response.setResponse(404, "Not Found")
-          return
-      except AttributeError:
-        pass
+      alias = ac.indexer.resolveAlias(path, True) # go for approximate matches
+      m = ac.dumbagents.match(request.getUserAgent())
+      if m:
+        response.setResponse(404, "Not Found")
+        return
       if alias != path:
         response.HTTPredirect(ac.base + alias)
         return

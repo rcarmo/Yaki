@@ -1,1 +1,0 @@
-{"title":"%(title)s","link":"%(link)s","description":"%(description)s","comments":"%(comments)s","pubdate":"%(pubdate)s","author":"%(author)s","permalink":"%(permalink)s","category":"%(category)s","images":%(images)s}

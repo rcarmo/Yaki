@@ -187,7 +187,8 @@ Here is the behavior of operations with relativedelta:
                 if yearday > 59:
                     self.leapdays = -1
             if yday:
-                ydayidx = [31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 366]
+                ydayidx = [31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334,
+                           366]
                 for idx, ydays in enumerate(ydayidx):
                     if yday <= ydays:
                         self.month = idx + 1
@@ -331,13 +332,13 @@ Here is the behavior of operations with relativedelta:
                              microsecond=other.second or self.microsecond)
 
     def __neg__(self):
-        return relativedelta(years=-self.years,
-                             months=-self.months,
-                             days=-self.days,
-                             hours=-self.hours,
-                             minutes=-self.minutes,
-                             seconds=-self.seconds,
-                             microseconds=-self.microseconds,
+        return relativedelta(years= -self.years,
+                             months= -self.months,
+                             days= -self.days,
+                             hours= -self.hours,
+                             minutes= -self.minutes,
+                             seconds= -self.seconds,
+                             microseconds= -self.microseconds,
                              leapdays=self.leapdays,
                              year=self.year,
                              month=self.month,
@@ -365,6 +366,8 @@ Here is the behavior of operations with relativedelta:
                     self.minute is None and
                     self.second is None and
                     self.microsecond is None)
+
+    __bool__ = __nonzero__
 
     def __mul__(self, other):
         f = float(other)

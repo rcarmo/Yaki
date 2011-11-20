@@ -91,7 +91,7 @@ def killPids(pids):
       pid=int(pid)
       print "PID %d uses port!" % pid
       if pid==os.getpid():
-        print "That's us.."
+        print "That's us."
         continue
       try:
         while 1:
@@ -157,7 +157,7 @@ def main(args):
       checkServer(force=force,restart=False)
       print "\nServer is not running anymore."
     elif args[1] =='force':
-      print ">>forcing the start of another server<<"
+      print "INFO:forcing the start of another server<<"
       checkServer(force=True)
     else:
       print "Usage: %s [check|stop|force]" % args[0]

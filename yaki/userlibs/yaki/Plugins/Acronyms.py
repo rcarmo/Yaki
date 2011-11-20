@@ -10,6 +10,8 @@ Published under the MIT license.
 import yaki.Engine, yaki.Store
 import urlparse, re
 from BeautifulSoup import *
+import logging
+log=logging.getLogger("Snakelets.logger")
 
 metaPage = 'meta/Acronyms'
 
@@ -22,7 +24,7 @@ class AcronymWikiPlugin(yaki.Plugins.WikiPlugin):
     try:
       page = c.store.getRevision(metaPage)
     except:
-      print "WARNING: no %s definitions" % metaPage
+      log.warning("%s missing - no acronyms loaded." % metaPage)
       return
     # prepare to parse only <pre> tags in it (so that we can have multiple tables organized by sections)
     plaintext = SoupStrainer('pre', text=re.compile('.+'))

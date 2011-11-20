@@ -1,5 +1,0 @@
-<div class="entry-home">
- <div class="entry-group">
-    %(content)s
-  </div>
-</div>

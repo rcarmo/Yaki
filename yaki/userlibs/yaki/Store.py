@@ -9,6 +9,9 @@ Created by Rui Carmo on 2006-11-12.
 Published under the MIT license.
 """
 
+import logging
+log=logging.getLogger("Snakelets.logger")
+
 import os, stat, glob, codecs
 import rfc822 # for basic parsing
 from yaki.Page import Page
@@ -85,7 +88,7 @@ class Store:
       if attachment and os.path.exists(attachment) and not os.path.isdir(attachment):
         return True
     except:
-      print "ERROR: bad attachment in %s" % pagename
+      log.error("Bad attachment in %s" % pagename)
     return False
 
   def getAttachmentFilename(self, pagename, attachment):

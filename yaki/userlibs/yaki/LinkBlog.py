@@ -20,6 +20,10 @@ except:
 import feedparser, expander, fetch
 from BeautifulSoup import BeautifulSoup, BeautifulStoneSoup
 
+# Snakelets logging
+import logging
+log=logging.getLogger("Snakelets.logger")
+
 # yaki
 from yaki.Page import Page
 from yaki.Store import Store
@@ -49,14 +53,15 @@ class Importer(threading.Thread):
       self.authors = delicious['authors']
       self.format = delicious['format']
       self.thumbs = {}
-      print "LinkBlog: retrieval active"
+      log.info("Retrieval active")
     except:
-      print "LinkBlog: Invalid or missing settings, retrieval inactive"
+      log.warning("Invalid or missing settings, retrieval inactive")
+      self.working = False
       return
     if thumbnails:
       self.apikey = self.webapp.getConfigItem('services')['webthumb']['apikey']
     self.working = True
-  
+
   def stop(self):
     self.working = False
 
@@ -67,7 +72,7 @@ class Importer(threading.Thread):
     for i in range(0, 6):
       time.sleep(5)
       if not self.working:
-        print "LinkBlog: Terminating fetcher before first fetch."
+        log.debug("Terminating fetcher before first fetch.")
         return
     # Play nice and allow for thread to be killed externally with minimum delay
     while(self.fetchLinks()):
@@ -75,7 +80,7 @@ class Importer(threading.Thread):
         time.sleep(120)
         self.checkThumbnails()
         if not self.working:
-          print "LinkBlog: Terminating fetcher."
+          log.info("Terminating fetcher.")
           return
 
   def checkThumbnails(self):
@@ -88,14 +93,17 @@ class Importer(threading.Thread):
 
       # check for invalid or stalled entries in list
       if self.thumbs[uri]['thumb'] is None or count > 20:
-        print "LinkBlog: Thumbnail for %s could not be retrieved (tried %d times)." % (uri, count)
-        ac.notifier.send(self.webapp.getConfigItem('jid'), "Thumbnail for %s could not be retrieved (tried %d times)." % (uri, count))
-        ac.notifier.send(self.webapp.getConfigItem('jid'), "Stored entry %s without thumbnail" % (siteurl + page))
+        log.warning("Thumbnail for %s could not be retrieved (tried %d times)." % (uri, count))
+        try:
+          ac.notifier.send(self.webapp.getConfigItem('jid'), "Thumbnail for %s could not be retrieved (tried %d times)." % (uri, count))
+          ac.notifier.send(self.webapp.getConfigItem('jid'), "Stored entry %s without thumbnail" % (siteurl + page))
+        except:
+          pass
         ac.store.updatePage(page,data)
         del self.thumbs[uri] # remove from list
       else:
         key = self.thumbs[uri]['thumb']['key']
-        print "LinkBlog: Trying to obtain thumbnail for %s" % key
+        log.debug("Trying to obtain thumbnail for %s" % key)
         thumbnail = tempfile.mktemp(dir='/tmp')
         # try getting the medium thumbnail first
         if webthumb.get_thumbnail(self.apikey,key,thumbnail,'medium'):
@@ -111,12 +119,15 @@ class Importer(threading.Thread):
           data['content'] = ac.templates[template] % data
           ac.store.updatePage(page,data)
           del self.thumbs[uri] # remove from list
-          print "LinkBlog: Stored entry %s using %s" % (page,template)
-          ac.notifier.send(self.webapp.getConfigItem('jid'), "Stored linkblog entry %s" % (siteurl + page))
+          log.info("Stored entry %s using %s" % (page,template))
+          try:
+            ac.notifier.send(self.webapp.getConfigItem('jid'), "Stored linkblog entry %s" % (siteurl + page))
+          except:
+            pass
           try:
             ac.twitter.send(siteurl + page, data['title'])
           except:
-            print "LinkBlog: unable to send Twitter update for %s" % page
+            log.warning("Unable to send Twitter update for %s" % page)
             pass
         else:
           count = count + 1
@@ -129,7 +140,7 @@ class Importer(threading.Thread):
       if key is not None:
         self.thumbs[uri] = {'page':page, 'data':data, 'thumb':key, 'count': 0}
       else:
-        print "LinkBlog: Could not queue %s" % uri
+        log.warning("Could not queue thumbnail for %s" % uri)
         return False
     return True
 
@@ -156,6 +167,29 @@ class Importer(threading.Thread):
     data = dict([(k,v) for k,v in fields.items() if k in ['author','date','markup','title','keywords','categories','tags','_headers','content']])
     # Does the page exist already?
     if not store.mtime(page):
+      # remove some del.icio.us tags
+      remove = ['for:links','post:links','comments:on', 'comments:off']
+      comments = 'Off' # sensible default for linkblog
+      if 'comments:on' in fields['tags']:
+       comments = 'On'
+      elif 'comments:off' in fields['tags']:
+        comments = 'Off'
+      e = expander.URLExpander()
+      uri = e.query(fields['uri'])
+      log.debug("Expanding %s for %s: got %s" % (fields['uri'], page, uri))
+      (schema, netloc, path, params, query, fragment) = urlparse.urlparse(uri)
+      if schema not in ['http', 'https']: # last ditch check for broken delicious feeds
+        log.error("Expanding %s: got %s" % (fields['uri'], uri))
+        return
+      _headers = "X-Comments: %s\nX-Link: %s" % (comments, uri)
+      date = time.strftime("%Y-%m-%d %H:%M:%S", fields['when'])
+      tags = ', '.join([x for x in fields['tags'].split(' ') if x not in remove])
+      keywords = tags = tags.replace(',,',',') # remove double commas
+      categories = "Links"
+      markup = self.webapp.getConfigItem('defaultmarkup')
+      fields.update(locals())
+      # filter fields to grab only the relevant data
+      data = dict([(k,v) for k,v in fields.items() if k in ['author','date','markup','title','keywords','categories','tags','_headers','content']])
       if thumbnails:
         if self.queueThumbnail(uri,page,data):
           pass
@@ -163,17 +197,17 @@ class Importer(threading.Thread):
           store.updatePage(page,data)
       else:
         store.updatePage(page,data)    
-  
+
   def fetchLinks(self):
     ac = self.webapp.getContext()
-    
     # Do not run fetcher in staging mode
     if ac.staging:
       return
     
-    print "LinkBlog: Fetching feed %s" % self.url
+    # use our own fetcher for centralized debugging (if necessary)
+    log.info("Fetching feed %s" % self.url)
     result = fetch.fetchURL(self.url)
-    
+
     if self.format == 'rss':
       data = feedparser.parse(result['data'])
       for item in data.entries:
@@ -210,5 +244,5 @@ class Importer(threading.Thread):
           self.assembleItem(locals())
         except:
           pass
-    print "LinkBlog: Fetch and processing completed"
+    log.info("Fetch and processing completed")
     return True

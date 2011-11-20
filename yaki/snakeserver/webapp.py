@@ -616,7 +616,7 @@ class WebApp(object):
             resp.setEncoding(self.defaultOutputEncoding)
             resp.setContentType(self.defaultContentType or "text/html")
 
-            snake.serve(req, resp)          # <------ the actual call to the snakelet!
+            snake.serve(req, resp) # <--- actual call to snakelet
 
             if not resp.used():
                 resp.sendError(404,"snakelet had no output")

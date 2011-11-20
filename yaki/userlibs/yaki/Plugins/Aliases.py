@@ -10,6 +10,8 @@ Published under the MIT license.
 import yaki.Engine, yaki.Store
 import urlparse, re, time
 from BeautifulSoup import *
+import logging
+log=logging.getLogger("Snakelets.logger")
 
 metaPage = 'meta/Aliases'
 
@@ -25,7 +27,7 @@ class AliasesWikiPlugin(yaki.Plugins.WikiPlugin):
     try:
       page = self.ac.store.getRevision(metaPage)
     except:
-      print "WARNING: no %s definitions" % metaPage
+      log.warning("%s missing - no aliases loaded." % metaPage)
       return
     self.aliases = {}
     # prepare to parse only <pre> tags in it (so that we can have multiple maps organized by sections)

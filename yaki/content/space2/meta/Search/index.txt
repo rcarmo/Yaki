@@ -1,9 +1,0 @@
-From: Rui Carmo
-Date: Wed, 25 Jun 2003 23:44:55 GMT
-Title: Search
-Tags: meta
-Content-Type: text/html
-X-Index: no
-X-Cache-Control: max-age=1
-
-<plugin name="Search"/>

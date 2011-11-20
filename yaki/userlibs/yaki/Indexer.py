@@ -7,7 +7,7 @@ Created by Rui Carmo on 2007-02-19.
 Published under the MIT license.
 """
 
-import os, errno, time, gc, difflib
+import os, errno, time, gc, difflib, urllib
 import threading, urlparse
 from BeautifulSoup import *
 from yaki.Engine import renderPage
@@ -17,7 +17,10 @@ from whoosh import index
 from whoosh.fields import Schema, TEXT, KEYWORD, ID, STORED
 from whoosh.analysis import StemmingAnalyzer, KeywordAnalyzer
 from whoosh.qparser import QueryParser
-from whoosh.writing import BatchWriter
+from whoosh.writing import AsyncWriter
+from whoosh.sorting import ScoreFacet, MultiFacet, FieldFacet
+import logging
+log=logging.getLogger("Snakelets.logger")
 
 class Indexer(threading.Thread):
 
@@ -57,9 +60,9 @@ class Indexer(threading.Thread):
       self.recent  = [name for name in self.pageinfo.keys()]
       self.recent.sort(lambda x, y: cmp(self.pageinfo[y]['last-modified'],self.pageinfo[x]['last-modified']))
       self.done = True
-      print "Indexer: state restored."
+      log.debug("State restored.")
     except: # go at it from scratch
-      print "Indexer: state reset."
+      log.debug("State reset.")
       self.pageinfo       = {} # all page headers
       self.backlinks      = {} # all backlinks across pages
       self.wikilinks      = {} # all wikilinks across pages
@@ -90,9 +93,9 @@ class Indexer(threading.Thread):
   def run(self):
     self.pagescan() # Do preliminary scanning
     gc.collect() # make sure we release memory
-    # Wait for 5s before starting full-text indexing
-    for i in range(0, 5):
-      time.sleep(1)
+    # Wait for 30s before starting full-text indexing
+    for i in range(0, 6):
+      time.sleep(5)
       if not self.working:
         return
     # Play nice and allow for thread to be killed externally with minimum delay
@@ -106,19 +109,19 @@ class Indexer(threading.Thread):
     """Full text index of content"""
     if self.staging:
       return
-    print "Indexer: Scanning pages"
+    log.info("Scanning pages")
     self.pagescan()
-    print "Indexer: Rebuilding"
+    log.info("Rebuilding")
     c = self.appcontext
     # Check if a previous fulltext index already exists
     try:
       self.whoosh = index.open_dir(self.path)
-      print "Indexer: Opening existing index"
+      log.debug("Opening existing index")
     except:
       self.whoosh = index.create_in(self.path, self.schema)
       self.indexed = {}      
-      print "Indexer: Creating new index"
-    self.writer = BatchWriter(self.whoosh)
+      log.debug("Creating new index")
+    self.writer = AsyncWriter(self.whoosh,)
     
     if len(self.deleted):
       dirty = True
@@ -129,7 +132,7 @@ class Indexer(threading.Thread):
     
     for name in self.deleted:
       self.whoosh.delete_by_term('name',name)
-      print "Indexer: deleting %s" % name
+      log.debug("Deleting %s" % name)
       try:
         del self.indexed[name]
       except:
@@ -145,7 +148,7 @@ class Indexer(threading.Thread):
         self.writer.commit()
         return False
 
-      print "Indexer: indexing %s" % name
+      log.debug("Indexing %s" % name)
       try:
         dummy = self.backlinks[name]
       except:
@@ -169,7 +172,7 @@ class Indexer(threading.Thread):
         try:
           page = c.store.getRevision(name)
         except:
-          print u'Indexer: ERROR: Could not index %s, will be re-visited upon next indexing pass.' % name
+          log.error(u'Could not index %s, will be re-visited upon next indexing pass.' % name)
           count = count + 1
           continue
         
@@ -213,7 +216,7 @@ class Indexer(threading.Thread):
         # Identify and store all wikilinks in markup
         links = soup.findAll('a', {'class':'wiki'})
         for link in links:
-          (schema, netloc, path, parameters, query, fragment) = urlparse.urlparse(link['href'])
+          (schema, netloc, path, parameters, query, fragment) = urlparse.urlparse(urllib.unquote(link['href']))
           path = path[len(self.appcontext.base):]
           path = self.resolveAlias(path)
           if not path in wikilinks:
@@ -234,7 +237,7 @@ class Indexer(threading.Thread):
           if not href in outboundlinks:
             outboundlinks.append(href)
           rel = link['rel']
-          (schema, netloc, path, parameters, query, fragment) = urlparse.urlparse(rel)
+          (schema, netloc, path, parameters, query, fragment) = urlparse.urlparse(urllib.unquote(rel))
           schema = schema.lower()
           if not schema in self.interwikilinks:
             self.interwikilinks[schema] = {}
@@ -273,20 +276,19 @@ class Indexer(threading.Thread):
         # Index the plaintext
         self.index(soup, page.headers, name, plaintext, self.wikilinks[name], self.outboundlinks[name])
         dirty = True
-        print "Indexer: %s done (%d of %d): %fs" % (name, count, bound, time.time()-start)
+        log.debug("%s done (%d of %d): %fs" % (name, count, bound, time.time()-start))
         if not (count % 100):      
           self.snapshot(c)
         count = count + 1
         self.indexed[name] = c.store.mtime(name)
     if dirty:
-      print "Indexer: Saving context"
+      log.debug("Saving context")
       self.snapshot(c)
-      print "Indexer: Sorting recent pages"
+      log.debug("Sorting recent pages")
       self.recent  = [name for name in self.pageinfo.keys()]
       self.recent.sort(lambda x, y: cmp(self.pageinfo[y]['last-modified'],self.pageinfo[x]['last-modified']))
-      print "Indexer: Closing index"
+      log.debug("Closing index")
       self.writer.commit()
-      print "Indexer: Indexing complete"
     else:
       # save the hitmap and pageinfo at regular intervals
       c.indexstate['indexer:pageinfo'] = self.pageinfo
@@ -294,9 +296,10 @@ class Indexer(threading.Thread):
       c.persistent['indexer:hitmap'] = self.hitmap
       c.persistent.commit()
       self.writer.commit()
-      print "Indexer: No updates performed"  
-    print "Indexer: Freeing RAM"
+      log.debug("No updates performed")  
+    log.debug("Freeing RAM")
     gc.collect()
+    log.info("Indexing complete")
     self.done = True
     return True
     
@@ -319,15 +322,15 @@ class Indexer(threading.Thread):
     c = self.appcontext
     self.allpages = c.store.allPages()
     self.aliases = c.store.aliases
-    print "Indexer: Total pages: %d" % len(self.allpages.keys())
+    log.info("Total pages: %d" % len(self.allpages.keys()))
     self.deleted = [x for x in self.indexed.keys() if c.store.mtime(x) is None]
-    print "Indexer: Deleted pages: %d" % len(self.deleted)
+    log.info("Deleted pages: %d" % len(self.deleted))
     modified = [x for x in self.indexed.keys() if c.store.mtime(x) > self.indexed[x]]
-    print "Indexer: Modified pages: %d" % len(modified)
+    log.info("Modified pages: %d" % len(modified))
     indexable = [x for x in self.allpages.keys() if x not in self.indexed.keys()]
     indexable.extend(modified)
     self.indexable = makeUnique(indexable)
-    print "Indexer: Indexable pages: %d" % len(self.indexable)
+    log.info("Indexable pages: %d" % len(self.indexable))
     self.indexable.sort(lambda x, y: self.allpages[y]-self.allpages[x])
     self.ready = True    
   
@@ -360,8 +363,8 @@ class Indexer(threading.Thread):
         pass
   
     # now add all wikilinks as keywords
-    wikilinks = u','.join(wikilinks)
-    links = u','.join(outboundlinks)
+    wikilinks = u",".join(wikilinks)
+    links = u",".join(outboundlinks)
     
     # and map tags, keywords and categories
     tags = []
@@ -371,7 +374,7 @@ class Indexer(threading.Thread):
           t = t.strip().lower()
           if t != '':
             tags.append(t)
-    tags = u','.join(tags)
+    tags = u",".join(tags)
     self.writer.update_document(name=unicode(name), 
       title=titletext,
       date=unicode(time.strftime("%Y%m%d%H%M%S",time.localtime(headers['date']))),
@@ -379,16 +382,24 @@ class Indexer(threading.Thread):
       tags=tags,
       wiki=wikilinks, 
       link=links,
-      body=titletext + u' ' + plaintext)
+      body=titletext + u" " + plaintext)
 
   def search(self, query, limit=10, field='body'):
     """Query the index"""
     if not self.done or not self.whoosh:
       return None
-    s = self.whoosh.searcher()
-    qp = QueryParser(field, schema=self.schema)
-    q = qp.parse(query)
-    return s.search(q,limit=limit)#,sortedby="modified",reverse="true")
+    try:
+      s = self.whoosh.searcher()
+      qp = QueryParser(field, schema=self.schema)
+      if ":" not in query:
+        query = "title:%s OR %s" % (query, query)
+      q = qp.parse(query)
+      sc = MultiFacet([ScoreFacet(),FieldFacet("modified", reverse=True)])
+      r = s.search(q,limit=limit, sortedby = sc)
+    except Exception, e:
+      log.error("ERROR in search: %s" % query, locals())
+      r = None
+    return r
     
   def resolveAlias(self,path,approximate = False):
     """Resolve page aliases - placed here to allow for future re-use of indexing data"""

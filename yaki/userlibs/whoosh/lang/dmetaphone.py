@@ -8,6 +8,7 @@
 
 import re
 
+from whoosh.compat import u
 
 vowels = frozenset("AEIOUY")
 slavo_germ_exp = re.compile("W|K|CZ|WITZ")
@@ -17,19 +18,19 @@ silent_starts = re.compile("GN|KN|PN|WR|PS")
 def double_metaphone(text):
     text = text.upper()
     slavo_germanic = bool(slavo_germ_exp.search(text))
-    
+
     length = len(text)
     text = "--" + text + "     "
     first = pos = 2
     last = first + length - 1
     primary = secondary = ""
-    
+
     if silent_starts.match(text, pos):
         pos += 1
-    
+
     while pos < length + 2:
         ch = text[pos]
-        
+
         if ch in vowels:
             # all init vowels now map to 'A'
             if pos != first:
@@ -110,7 +111,7 @@ def double_metaphone(text):
                         next = ('K', 2)
                     else:  # default for 'C'
                         next = ('K', 1)
-        elif ch == u'Ç':
+        elif ch == u('\xc7'):
             next = ('S', 1)
         elif ch == 'D':
             if text[pos:pos + 2] == 'DG':
@@ -248,7 +249,7 @@ def double_metaphone(text):
                 next = ('N', 2)
             else:
                 next = ('N', 1)
-        elif ch == u'Ñ':
+        elif ch == u('\xd1'):
             next = ('N', 1)
         elif ch == 'P':
             if text[pos + 1] == 'H':
@@ -394,7 +395,7 @@ def double_metaphone(text):
                 next = next + (1,)
         else:
             next = (None, 1)
-                
+
         if len(next) == 2:
             if next[0]:
                 primary += next[0]
@@ -406,7 +407,7 @@ def double_metaphone(text):
             if next[1]:
                 secondary += next[1]
             pos += next[2]
-        
+
     if primary == secondary:
         return (primary, None)
     else:
@@ -415,7 +416,7 @@ def double_metaphone(text):
 if __name__ == '__main__':
     names = {'maurice': ('MRS', None), 'aubrey': ('APR', None), 'cambrillo': ('KMPRL', 'KMPR'),
         'heidi': ('HT', None), 'katherine': ('K0RN', 'KTRN'), 'Thumbail': ('0MPL', 'TMPL'),
-        'catherine': ('K0RN', 'KTRN'), 'richard': ('RXRT', 'RKRT'), 'bob': ('PP', None),\
+        'catherine': ('K0RN', 'KTRN'), 'richard': ('RXRT', 'RKRT'), 'bob': ('PP', None), \
         'eric': ('ARK', None), 'geoff': ('JF', 'KF'), 'Through': ('0R', 'TR'), 'Schwein': ('XN', 'XFN'),
         'dave': ('TF', None), 'ray': ('R', None), 'steven': ('STFN', None), 'bryce': ('PRS', None),
         'randy': ('RNT', None), 'bryan': ('PRN', None), 'Rapelje': ('RPL', None),
@@ -425,5 +426,3 @@ if __name__ == '__main__':
         'Parachute': ('PRKT', None), 'Nowhere': ('NR', None), 'Tux': ('TKS', None)}
     for name in names.keys():
         assert (double_metaphone(name) == names[name]), 'For "%s" function returned %s. Should be %s.' % (name, double_metaphone(name), names[name])
-        
-        
