@@ -1,5 +1,9 @@
 # Yaki - A fast, powerful filesystem-based wiki
 
+## Latest update:
+
+* [2011-11-20](https://github.com/rcarmo/Yaki/blob/ae8de89fd7a4bc2cac53cb3c72d04321de4952b3/pages/main/blog/2011/11/20/1706/index.md)
+
 ## About
 
 This is the second public release of Yaki (the first was in [Google Code][gc], and is long obsolete).
