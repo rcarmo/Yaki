@@ -7,5 +7,3 @@ X-Cache-Control: max-age=300
 The following table lists pages that have been recently visited:
 
 <plugin name="mostpopular" src="time"/>
-
-*Note:* <small>Hit counts are relative to last "Yaki":Projects/Yaki restart and merely an approximation, since they require visitors to have "JavaScript":JavaScript enabled and finish loading all page content. Data is cached for 5 minutes.</small>

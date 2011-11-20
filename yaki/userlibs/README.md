@@ -8,8 +8,9 @@ This is the directory where common user libraries are stored, and it is added to
 
 The following lists the third-party libraries included with Yaki, grouped by date they were added/updated:
 
+* 2011-11-20 - [whoosh][w] HEAD ([Apache][a])
 * 2011-03-08 - [xmpppy][x] 0.5.0-rc1
-* 2011-02-16 - [feedparser][f] 5.0, [tlslite][t] 0.3.8 (Public Domain), [BeautifulSoup][bs] 3.2.0 ([BSD][bsd]), [simplejson][sj] 2.1.3 ([MIT][mit]), [pygments][p] 1.4, [markdown][m] 2.1.0 (git, [BSD][bsd]), [whoosh][w] 1.7.1 ([Apache][a]), [httplib2][h] 0.6.0, [oauth2][o] 166 ([MIT][mit]), [python-twitter][pt]
+* 2011-02-16 - [feedparser][f] 5.0, [tlslite][t] 0.3.8 (Public Domain), [BeautifulSoup][bs] 3.2.0 ([BSD][bsd]), [simplejson][sj] 2.1.3 ([MIT][mit]), [pygments][p] 1.4, [markdown][m] 2.1.0 (git, [BSD][bsd]), [httplib2][h] 0.6.0, [oauth2][o] 166 ([MIT][mit]), [python-twitter][pt]
 * 2010-04-17 - twitter 0.7-devel  
 * 2009-10-03 - [pygooglechart][pgc] 0.2.1 ([GPL][g]), titlecase 0.1, webthumb  
 

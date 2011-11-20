@@ -23,7 +23,7 @@ class PluginRegistry:
     """Load wiki plugins. Assumptions are that they are inside the plugins directory 
        under the yaki tree, in userlibs, so we can use standard import..."""
     log.info("Loading Wiki plugins...")
-    c = webapp.getContext()
+    self.ac = webapp.getContext()
     # Get plugin directory
     plugindir = yaki.Plugins.__path__[0]
     for f in locate('*.py', plugindir):
@@ -40,7 +40,7 @@ class PluginRegistry:
         pass
     
   def register(self, category, instance, tag, name):
-    log.info("Plugin %s registered in category %s for tag %s" % (name,category,tag))
+    log.info("%s: Plugin %s registered in category %s for tag %s" % (self.ac.name, name, category, tag))
     if tag not in self.plugins[category].keys():
       self.plugins[category][tag] = {}
     self.plugins[category][tag][name.lower()] = instance

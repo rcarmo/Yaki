@@ -3,7 +3,7 @@
 <html>
 
 <head> 
-    <!-- Since we're on a secondary wiki, the BASE tag makes it a lot easier to manage URLs -->
+    <!-- Since we're on a secondary wiki that is not on a separate virtual host, the BASE tag makes it a lot easier to manage URLs -->
     <base href="/secondary/" />
 	<title>Yaki - <%=self.Request.getParameter('title','Template')%></title>
 	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
@@ -35,9 +35,7 @@ table tr:hover { background-color: #abc; color: #448; -webkit-border-radius: 8px
 <%
 links = [
   ['p/start','Home Page', 'Home'],
-  ['meta/RecentChanges','Recent Changes', 'Recent Changes'],
-  ['docs','Documentation', 'Docs'],
-  ['docs/Bugs','Bugs', 'Bugs']
+  ['p/meta/RecentChanges','Recent Changes', 'Recent Changes'],
 ]
 
 for i in links:
@@ -60,7 +58,7 @@ for i in links:
   </div> <!-- #primary -->
   <hr />
   <div class="secondary">
-<form method="get" action="meta/Search" method="get">
+<form method="get" action="p/meta/Search" method="get">
 	<input type="text" name="q" tabindex="1" autocomplete="off" value="Search" />
 	<input type="submit" id="searchsubmit" value="go" />
 </form>

@@ -46,6 +46,7 @@ class SearchWikiPlugin(yaki.Plugins.WikiPlugin):
     
     # TODO - add some templating to get rid of this inline HTML
     buffer = []
+    log.debug("Search performed on %s" % self.ac.name)
     hits = self.ac.indexer.search(q,limit=20)
     if hits == None or not len(hits):
       buffer.append(u'<p>%s <b>"%s"</b>.</p>' % (self.i18n['no_results'], q))
