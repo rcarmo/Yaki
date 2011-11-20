@@ -152,9 +152,11 @@ class BuildNode(object):
         return h
 
     def __eq__(self, other):
+        if self is other:
+            return True
         if self.final != other.final:
             return False
-        mine, theirs = self._edges, other._edges
+        mine, theirs = self.all_edges(), other.all_edges()
         if len(mine) != len(theirs):
             return False
         for key in iterkeys(mine):
@@ -197,7 +199,7 @@ class DawgBuilder(object):
     to support the spelling correction system.
     """
 
-    def __init__(self, reduced=True, field_root=False):
+    def __init__(self, dbfile, reduced=True, field_root=False):
         """
         :param dbfile: an optional StructFile. If you pass this argument to the
             initializer, you don't have to pass a file to the ``write()``
@@ -209,6 +211,7 @@ class DawgBuilder(object):
             out-of-order.
         """
 
+        self.dbfile = dbfile
         self._reduced = reduced
         self._field_root = field_root
 
@@ -284,9 +287,9 @@ class DawgBuilder(object):
         if self._reduced:
             self.reduce(self.root, self._field_root)
 
-    def write(self, dbfile):
+    def close(self):
         self.finish()
-        DawgWriter(dbfile).write(self.root)
+        DawgWriter(self.dbfile).write(self.root)
 
     @staticmethod
     def reduce(root, field_root=False):

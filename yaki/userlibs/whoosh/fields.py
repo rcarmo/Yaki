@@ -73,12 +73,12 @@ class FieldType(object):
     
     The FieldType object supports the following attributes:
     
-    * format (fields.Format): the storage format for the field's contents.
+    * format (formats.Format): the storage format for the field's contents.
     
     * analyzer (analysis.Analyzer): the analyzer to use to turn text into
       terms.
     
-    * vector (fields.Format): the storage format for the field's vectors
+    * vector (formats.Format): the storage format for the field's vectors
       (forward index), or None if the field should not store vectors.
     
     * scorable (boolean): whether searches against this field may be scored.
@@ -217,9 +217,11 @@ class FieldType(object):
                             % (self.__class__.__name__, self))
         if not isinstance(value, (text_type, list, tuple)):
             raise ValueError("%r is not unicode or sequence" % value)
-        assert isinstance(self.format, formats.Format), type(self.format)
-        return self.format.word_values(value, self.analyzer, mode="index",
-                                       **kwargs)
+        assert isinstance(self.format, formats.Format)
+
+        if "mode" not in kwargs:
+            kwargs["mode"] = "index"
+        return self.format.word_values(value, self.analyzer, **kwargs)
 
     def index_(self, fieldname, value, **kwargs):
         for w, freq, weight, value in self.index(value, **kwargs):
@@ -300,21 +302,7 @@ class FieldType(object):
         (i.e. the ``spelling`` attribute is False).
         """
 
-        if not self.spelling:
-            # If the field doesn't support spelling, it doesn't support
-            # separate spelling
-            return False
-        elif not self.indexed:
-            # The field is marked as supporting spelling, but isn't indexed, so
-            # we need to generate the spelling words separately from indexing
-            return True
-        elif self.analyzer.has_morph():
-            # The analyzer has morphological transformations (e.g. stemming),
-            # so the words that go into the word graph need to be generated
-            # separately without the transformations.
-            return True
-        else:
-            return False
+        return self.spelling and self.analyzer.has_morph()
 
     def spellable_words(self, value):
         """Returns an iterator of each unique word (in sorted order) in the
@@ -470,7 +458,7 @@ class NUMERIC(FieldType):
         for shift in xrange(0, bitlen, self.shift_step):
             yield self.to_text(num, shift=shift)
 
-    def index(self, num):
+    def index(self, num, **kwargs):
         # If the user gave us a list of numbers, recurse on the list
         if isinstance(num, (list, tuple)):
             items = []
@@ -698,7 +686,7 @@ class BOOLEAN(FieldType):
             raise ValueError("%r is not a boolean")
         return self.strings[int(bit)]
 
-    def index(self, bit):
+    def index(self, bit, **kwargs):
         bit = bool(bit)
         # word, freq, weight, valuestring
         return [(self.strings[int(bit)], 1, 1.0, '')]
@@ -1178,3 +1166,28 @@ def ensure_schema(schema):
     return schema
 
 
+def merge_fielddict(d1, d2):
+    keyset = set(d1.keys()) | set(d2.keys())
+    out = {}
+    for name in keyset:
+        field1 = d1.get(name)
+        field2 = d2.get(name)
+        if field1 and field2 and field1 != field2:
+            raise Exception("Inconsistent field %r: %r != %r"
+                            % (name, field1, field2))
+        out[name] = field1 or field2
+    return out
+
+
+def merge_schema(s1, s2):
+    schema = Schema()
+    schema._fields = merge_fielddict(s1._fields, s2._fields)
+    schema._dyn_fields = merge_fielddict(s1._dyn_fields, s2._dyn_fields)
+    return schema
+
+
+def merge_schemas(schemas):
+    schema = schemas[0]
+    for i in xrange(1, len(schemas)):
+        schema = merge_schema(schema, schemas[i])
+    return schema

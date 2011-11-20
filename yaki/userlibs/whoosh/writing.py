@@ -222,9 +222,6 @@ class IndexWriter(object):
         # Check which of the supplied fields are unique
         unique_fields = [name for name, field in self.schema.items()
                          if name in fields and field.unique]
-        if not unique_fields:
-            raise IndexingError("None of the fields in %r"
-                                " are unique" % list(fields.keys()))
         return unique_fields
 
     def update_document(self, **fields):
@@ -282,10 +279,11 @@ class IndexWriter(object):
 
         # Delete the set of documents matching the unique terms
         unique_fields = self._unique_fields(fields)
-        with self.searcher() as s:
-            for docnum in s._find_unique([(name, fields[name])
-                                          for name in unique_fields]):
-                self.delete_document(docnum)
+        if unique_fields:
+            with self.searcher() as s:
+                for docnum in s._find_unique([(name, fields[name])
+                                              for name in unique_fields]):
+                    self.delete_document(docnum)
 
         # Add the given fields
         self.add_document(**fields)
@@ -298,34 +296,6 @@ class IndexWriter(object):
     def cancel(self):
         """Cancels any documents/deletions added by this object
         and unlocks the index.
-        """
-        pass
-
-
-class PostingWriter(object):
-    @abstractmethod
-    def start(self, format):
-        """Start a new set of postings for a new term. Implementations may
-        raise an exception if this is called without a corresponding call to
-        finish().
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def write(self, id, weight, valuestring):
-        """Add a posting with the given ID and value.
-        """
-        raise NotImplementedError
-
-    def finish(self):
-        """Finish writing the postings for the current term. Implementations
-        may raise an exception if this is called without a preceding call to
-        start().
-        """
-        pass
-
-    def close(self):
-        """Finish writing all postings and close the underlying file.
         """
         pass
 
@@ -349,12 +319,12 @@ class AsyncWriter(threading.Thread, IndexWriter):
     
     For example, to get an aynchronous writer, instead of this:
     
-    >>> writer = myindex.writer(postlimitmb=128)
+    >>> writer = myindex.writer()
     
     Do this:
     
     >>> from whoosh.writing import AsyncWriter
-    >>> writer = AsyncWriter(myindex, )
+    >>> writer = AsyncWriter(myindex)
     """
 
     def __init__(self, index, delay=0.25, writerargs=None):
