@@ -22,7 +22,6 @@ except:
   import simplejson as json
 
 exclusions = ['^HomePage$','^meta.+']
-sanitize = re.compile('^(blog|links)')
 
 def filtered(name,namespace,exclusions):
   for pattern in exclusions:
@@ -163,7 +162,7 @@ class RSS(Snakelet):
       else:
         permalink = link = guid = self.baseurl + pagename.replace(' ','_')
         
-      if SANITIZE_TITLE_REGEX.match(pagename):
+      if re.compile('^(%s|links)' % ac.siteinfo['journal']).match(pagename):
         permalink = permalink + "#%s" % sanitizeTitle(title)
       
       guid = ac.siteinfo['siteurl'].replace("http://","") + "." + hashlib.sha1(guid).hexdigest()

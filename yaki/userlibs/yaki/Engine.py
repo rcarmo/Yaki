@@ -378,7 +378,7 @@ class Wiki(Snakelet):
       link = rellink = permalink = plainpermalink = u"%s%s" % (ac.base, c.path)
       description = self.i18n['permalink_description']
       c.headers['bookmark'] = request.getBaseURL() + permalink
-      if SANITIZE_TITLE_REGEX.match(c.path):
+      if re.compile('^(%s|links)' % ac.siteinfo['journal']).match(c.path):
         permalink = permalink + u"#%s" % sanitizeTitle(c.title)
 
       linkclass = "wikilink"
@@ -434,6 +434,11 @@ class Wiki(Snakelet):
         c.postbody = ac.templates['generic'] % locals()
       c.sitename = ac.siteinfo['sitename']
       c.sitedescription = ac.siteinfo['sitedescription']
+      
+      c.siteroot = ac.siteinfo['siteroot']
+      c.theme = ac.siteinfo['theme']
+      c.media = ac.siteinfo['media']
+      
     except Warning, e:
       c.status = e.value
       (c.headers, c.content) = self.getPage(request, response)
@@ -538,3 +543,4 @@ class Wiki(Snakelet):
       if cmp(redirect,page):
         return redirect
     return None
+
