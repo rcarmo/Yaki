@@ -11,7 +11,7 @@ self.setHeader("Expires", self.Request.getParameter('expires',(datetime.datetime
 #unset these headers to force browsers to rely on Last-Modified and etag
 ac = self.ApplicationCtx
 %>
-<% self.Assetprefix = 'themes/bootstrap/' %>
+<% self.Assetprefix = 'theme/%s/' % self.Request.getParameter('theme', '') %>
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -24,12 +24,12 @@ ac = self.ApplicationCtx
 
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
-      <script src="/themes/bootstrap/js/html5.js"></script>
+      <script src="/themes/<%=self.Request.getParameter('theme', '')%>/js/html5.js"></script>
     <![endif]-->
 
     <!-- Le styles -->
-    <link href="/themes/bootstrap/css/bootstrap.css" rel="stylesheet">
-    <link href="/themes/bootstrap/css/syntax.css" rel="stylesheet">
+    <link href="/themes/<%=self.Request.getParameter('theme', '')%>/css/style.css" rel="stylesheet">
+    <link href="/themes/<%=self.Request.getParameter('theme', '')%>/css/syntax.css" rel="stylesheet">
     <style type="text/css">
       /* Override some defaults */
       html, body {
@@ -84,10 +84,10 @@ ac = self.ApplicationCtx
     </style>
 
     <!-- Le fav and touch icons -->
-    <link rel="shortcut icon" href="/themes/bootstrap/img/favicon.ico">
-    <link rel="apple-touch-icon" href="/themes/bootstrap/img/bootstrap-apple-57x57.png">
-    <link rel="apple-touch-icon" sizes="72x72" href="/themes/bootstrap/img/bootstrap-apple-72x72.png">
-    <link rel="apple-touch-icon" sizes="114x114" href="/themes/bootstrap/img/bootstrap-apple-114x114.png">
+    <link rel="shortcut icon" href="/themes/<%=self.Request.getParameter('theme', '')%>/img/favicon.ico">
+    <link rel="apple-touch-icon" href="/themes/<%=self.Request.getParameter('theme', '')%>/img/apple-touch-icon-57x57.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="/themes/<%=self.Request.getParameter('theme', '')%>/img/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="/themes/<%=self.Request.getParameter('theme', '')%>/img/apple-touch-icon-114x114.png">
   </head>
 
   <body>
@@ -95,12 +95,12 @@ ac = self.ApplicationCtx
     <div class="topbar">
       <div class="fill">
         <div class="container">
-          <a class="brand" href="/p/start"><%=ac.siteinfo['sitename']%></a>
+          <a class="brand" href="/<%=self.Request.getParameter('siteroot', '')%>/start"><%=ac.siteinfo['sitename']%></a>
           <ul class="nav">
-            <li class="active"><a href="/p/start">Home</a></li>
-            <li><a href="/p/site/about">About</a></li>
+            <li class="active"><a href="/<%=self.Request.getParameter('siteroot', '')%>/start">Home</a></li>
+            <li><a href="/<%=self.Request.getParameter('siteroot', '')%>/site/about">About</a></li>
           </ul>
-          <form  action="/p/meta/Search" method="get" accept-charset="utf-8" class="pull-right">
+          <form  action="/<%=self.Request.getParameter('siteroot', '')%>/meta/Search" method="get" accept-charset="utf-8" class="pull-right">
             <input class="input-small" name="q" type="text" placeholder="Search">
             <button class="btn" type="submit">Go</button>
           </form>
@@ -122,13 +122,16 @@ ac = self.ApplicationCtx
           <div class="span4">
             <h3>Links</h3>
             <ul>
-            <li><a href="/p/meta/Archives">Archives</a></li>
-            <li><a href="/p/meta/Index">Index</a></li>
-            <li><a href="/p/meta/RecentUpdates">Recent Updates</a></li>
+            <li><a href="/<%=self.Request.getParameter('siteroot', '')%>/meta/Archives">Archives</a></li>
+            <li><a href="/<%=self.Request.getParameter('siteroot', '')%>/meta/Index">Index</a></li>
+            <li><a href="/<%=self.Request.getParameter('siteroot', '')%>/meta/RecentUpdates">Recent Updates</a></li>
              </ul>
           </div>
           <div class="span14">
-          <%=self.Request.getParameter('seealso','')%>
+             <%
+             if self.Request.getParameter('path', '') != "home":
+               self.write( '%s' % self.Request.getParameter('seealso',''))
+             %>
           </div>
         </div>
       </div>
