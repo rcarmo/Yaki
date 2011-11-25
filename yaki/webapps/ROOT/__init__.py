@@ -92,8 +92,8 @@ configItems = {
   # time frame for enabling comments (blog namespace only, disabled if zero)
   "commentwindow": 15 * 86400,
   # standing redirects for legacy/alternate pathnames
-  "redirects" : { # standing redirects
-    'p' : 'start', 
+  "redirects" : { # standing redirects - THESE ARE REGULAR EXPRESSIONS AND MATCHED AS SUCH!
+    '^p$' : 'start', 
     '^%s\/(\d+)-(\d+)$' % journal : '%s/\\1/\\2' % journal,
     '^%s\/(\d+)-(\d+)-(\d+)$' % journal : '%s/\\1/\\2/\\3' % journal,
     '^%s\/(\d+)-(\d+)-(\d+).(\d+):(\d+)$' % journal : '%s/\\1/\\2/\\3/\\4\\5' % journal
