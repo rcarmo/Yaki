@@ -26,9 +26,6 @@ ATTACHMENT_SCHEMAS = ['cid','attach']
 # regexp for matching caching headers
 MAX_AGE_REGEX = re.compile('max-age(\s*)=(\s*)(\d+)')
 
-# regexp for sanitizing titles
-SANITIZE_TITLE_REGEX = re.compile('^(blog|links)')
-
 #
 # Date handling
 #

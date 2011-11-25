@@ -36,7 +36,7 @@ class JournalWikiPlugin(yaki.Plugins.WikiPlugin):
     except:
       bound = 12
     # filter for the namespaces to be shown on the home page
-    mask = re.compile('^(blog|links|podcast)\/(\d+){4}\/(\d+){2}\/(\d+){2}.*')
+    mask = re.compile('^(%s|links|podcast)\/(\d+){4}\/(\d+){2}\/(\d+){2}.*' % ac.siteinfo['journal'])
     # this is what entries ought to look like, ideally
     canon = "0000/00/00/0000"
     
@@ -80,8 +80,9 @@ class JournalWikiPlugin(yaki.Plugins.WikiPlugin):
       linkclass = "wikilink"
       posttitle = headers['title']
       rellink = path
-      permalink = headers['bookmark'] = request.getBaseURL() + rellink
-      if SANITIZE_TITLE_REGEX.match(name):
+      #permalink = headers['bookmark'] = request.getBaseURL() + rellink
+      permalink = headers['bookmark'] = rellink
+      if re.compile('^(%s|links)' % ac.siteinfo['journal']).match(name):
         permalink = permalink + "#%s" % sanitizeTitle(posttitle)
       description = "permanent link to this entry"
       if 'x-link' in headers.keys():

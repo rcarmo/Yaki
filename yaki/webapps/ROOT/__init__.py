@@ -9,7 +9,7 @@ import logging
 log = logging.getLogger("Snakelets.logger")
 
 # Yaki libraries
-import yaki.Haystack, yaki.Engine, yaki.Feeds, yaki.Indexer, yaki.Tracker, yaki.LinkBlog, yaki.Plugins, yaki.Notifier
+import yaki.Haystack, yaki.Engine, yaki.Feeds, yaki.Indexer, yaki.Tracker, yaki.LinkBlog, yaki.Plugins, yaki.Notifier, yaki.Redirect
 
 # configuration for this webapp
 name="Yaki"
@@ -17,7 +17,7 @@ defaultRequestEncoding = defaultOutputEncoding = "utf-8"
 sessionTimeoutSecs=1800
 
 # for URL generation and basic setup - must match webapps/__init__.py if you're using vhosts, otherwise you'll get mis-formatted URLs
-vhost="localhost"
+vhost="localhost:9090"
 
 # This is where page templates and themes go
 # (path is relative to this file)
@@ -26,13 +26,22 @@ docroot="../../../web/main"
 # templates for HTML snippets
 templates = ['generic', 'simplified', 'journal', 'linkblog', 'linkblog-with-thumbnail', 'linkblog-with-quicklook', 'comments-link', 'comments-enabled', 'comments-soon', 'comments-disabled', 'rss-feed', 'rss-item', 'rss-item-update', 'rss-footer', 'rss-styles', 'error-page', 'json-item']
 
+# Customize site URLs here
+siteroot =  "p"     # Wiki root
+media =     "m"     # file attachments
+journal =   "blog"  # Journal namespace
+
+# Theme -- name must match a folder in 'web/<wiki-name>/themes/'
+theme = "bootstrap"
+
 # This is the root or primary wiki, so these are top-level routes for URLs
-snakelets= {
-  "p": yaki.Engine.Wiki,         # Wiki
-  "m": yaki.Engine.Attachment,   # file attachments
-  "f" : yaki.Engine.FontPreview, # font preview generator
-  "t": yaki.Engine.Thumbnail,    # image thumbnails
-  "r": yaki.Feeds.RSS,           # RSS feeds
+snakelets = {
+  siteroot:     yaki.Engine.Wiki,           # Wiki
+  media:        yaki.Engine.Attachment,     # file attachments
+  "f":          yaki.Engine.FontPreview,    # font preview generator
+  "t":          yaki.Engine.Thumbnail,      # image thumbnails
+  "r":          yaki.Feeds.RSS,             # RSS feeds
+  "index.sn":   yaki.Redirect.Redirect      # redirect ROOT requests to Wiki
 }
 defaultErrorPage = "/error.y"
 
@@ -47,7 +56,11 @@ configItems = {
   "siteinfo": {'sitename': 'Yaki', # RSS feeds
                'sitetitle': 'Yaki', # page titles
                'sitedescription': 'Just another Yaki site',
-               'siteurl': 'http://' +  vhost
+               'siteurl': 'http://' +  vhost,
+               'siteroot': siteroot,
+               'theme': theme,
+               'media': media,
+               'journal': journal
   },
   # match hostnames to deployment settings
   # staging: True disables full text indexing
@@ -56,16 +69,16 @@ configItems = {
     ".+": {"store": "../../../pages/main", "staging": False }
   },
   # Theme
-  "theme": "themes/bootstrap",
+  "theme": "themes/%s" % theme,
   # Locale
   "locale": "en_US",
   # The base URLs for Wiki pages and media, used for URL generation
-  "base": "/p/",
-  "media": "/m/",
+  "base": "/%s/" % siteroot,
+  "media": "/%s/" % media,
   "thumb": "/t/",
   "fontpreview": "/f/",
   # Special page prefixes we use in lieu of namespaces
-  "namespaces": ['apps','Hardware','HOWTO','meta','dev','tests','docs','blog','people','links','podcast','stories'],
+  "namespaces": ['apps','Hardware','HOWTO','meta','dev','tests','docs',journal,'people','links','podcast','stories'],
   # default author - you really, really want to change this...
   "author": "Administrator",
   # Jabber ID to send notifications to
@@ -81,9 +94,9 @@ configItems = {
   # standing redirects for legacy/alternate pathnames
   "redirects" : { # standing redirects
     'p' : 'start', 
-    '^blog\/(\d+)-(\d+)$' : 'blog/\\1/\\2',
-    '^blog\/(\d+)-(\d+)-(\d+)$' : 'blog/\\1/\\2/\\3',
-    '^blog\/(\d+)-(\d+)-(\d+).(\d+):(\d+)$' : 'blog/\\1/\\2/\\3/\\4\\5'
+    '^%s\/(\d+)-(\d+)$' % journal : '%s/\\1/\\2' % journal,
+    '^%s\/(\d+)-(\d+)-(\d+)$' % journal : '%s/\\1/\\2/\\3' % journal,
+    '^%s\/(\d+)-(\d+)-(\d+).(\d+):(\d+)$' % journal : '%s/\\1/\\2/\\3/\\4\\5' % journal
   },
   "dumbagents" : re.compile(".*(Apple-PubSub|YandexBot|GoogleBot|msnbot|bingbot|Mediapartners).*", re.IGNORECASE) # User-agents that should not be redirected to alternative URLs and get 404s
 }
