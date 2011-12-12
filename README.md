@@ -33,6 +33,12 @@ Yaki is a filesystem-based wiki that is used as the underpinnings of [The Tao of
 * Has a number of unusual Bliki features, like a blog-like home page, linkblog support, and the SeeAlso table at the bottom of each page.
 * Supports full-text indexing and search using [Whoosh](http://bitbucket.org/mchaput/whoosh/wiki/Home)
 
+## Roadmap
+
+* Full conversion of legacy Snakelet docs
+* Support for multiple Wiki instances in the same installation (currently partly working)
+* [Annotator](http://okfnlabs.org/annotator/) support (currently being worked on in the `annotator` branch, feel free to join in)
+
 ## Requirements
 
 * Python 2.6 (2.7 will work just as well, and 2.5 may work with minimal tweaks)
