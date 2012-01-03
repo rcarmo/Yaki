@@ -88,12 +88,12 @@ class ArchiveWikiPlugin(yaki.Plugins.WikiPlugin):
           pass
       self.ac.cache['archive:' + tag['src']] = entries
     
+    y = request.getParameter('year', default=time.strftime("%Y"))
+    m = request.getParameter('month', default=time.strftime("%m"))
     try:
-      # sanitize query parameters
-      y = request.getParameter('year', default=time.strftime("%Y"))
+      # try to match query parameters with indexing info
       if y not in entries.keys():
         y = time.strftime("%Y")
-      m = request.getParameter('month', default=time.strftime("%m"))
       if m not in entries[y].keys():
         m = time.strftime("%m")
     except KeyError: # there are no pages matching the criteria
