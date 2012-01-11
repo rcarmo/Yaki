@@ -53,6 +53,9 @@ class Page:
       try:
         (header_lines,self.raw) = buffer.split("\n\n", 1)
         for header in header_lines.strip().split("\n"):
+          # Allow for comments in headers
+          if header.strip()[0] == '#':
+            continue
           (name, value) = header.strip().split(":", 1)
           self.headers[name.lower().strip()] = unicode(value.strip())
       except:
