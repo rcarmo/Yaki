@@ -46,6 +46,10 @@ configItems = {
   # the siteurl is used to build absolute URLs
   "siteinfo": {'sitename': 'Yaki', # RSS feeds
                'sitetitle': 'Yaki', # page titles
+               'siteroot': 'secondary/p',
+               'media': 'secondary/m',
+               'theme': 'minimal',
+               'journal': 'blog', # journal tree. TODO: remove this from all instances
                'sitedescription': 'Just another Yaki site',
                'siteurl': 'http://' +  vhost
   },
