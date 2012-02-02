@@ -31,4 +31,4 @@ Bootstrap itself. I'm not quite happy with the typography and layout for some re
 
 [tb]: http://twitter.github.com/bootstrap/
 [t]: http://the.taoofmac.com
-[w]: http://woosh.ca
+[w]: Whoosh

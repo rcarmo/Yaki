@@ -392,6 +392,7 @@ TiddlyWiki http://www.tiddlywiki.com/
 Tomcat http://tomcat.apache.org/
 git Wikipedia:Git_(software)
 Xen Wikipedia:Xen
+Whoosh https://bitbucket.org/mchaput/whoosh/
 </pre>
 
 h1. Concepts
