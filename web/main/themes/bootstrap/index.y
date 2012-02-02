@@ -21,66 +21,27 @@ ac = self.ApplicationCtx
     <meta name="keywords" content="<%=self.Request.getParameter('keywords','')%>" />
     <meta name="description" content="">
     <meta name="author" content="">
-
     <!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
     <!--[if lt IE 9]>
       <script src="/themes/<%=self.Request.getParameter('theme', '')%>/js/html5.js"></script>
     <![endif]-->
-
     <!-- Le styles -->
-    <link href="/themes/<%=self.Request.getParameter('theme', '')%>/css/style.css" rel="stylesheet">
+    <link href="/themes/<%=self.Request.getParameter('theme', '')%>/css/bootstrap.css" rel="stylesheet">
     <link href="/themes/<%=self.Request.getParameter('theme', '')%>/css/syntax.css" rel="stylesheet">
     <style type="text/css">
       /* Override some defaults */
       html, body {
         background-color: #eee;
       }
-      body {
-        padding-top: 40px; /* 40px to make the container go all the way to the bottom of the topbar */
-      }
-      .container > footer p {
-        text-align: center; /* center align it with the container */
-      }
-      .container {
-        width: 820px; /* downsize our container to make the content feel a bit tighter and more cohesive. NOTE: this removes two full columns from the grid, meaning you only go to 14 columns and not 16. */
-      }
-
-      /* The white background content wrapper */
       .content {
         background-color: #fff;
-        padding: 20px;
-        margin: 0 -20px; /* negative indent the amount of the padding to maintain the grid system */
-        -webkit-border-radius: 0 0 6px 6px;
-           -moz-border-radius: 0 0 6px 6px;
-                border-radius: 0 0 6px 6px;
-        -webkit-box-shadow: 0 1px 2px rgba(0,0,0,.15);
-           -moz-box-shadow: 0 1px 2px rgba(0,0,0,.15);
-                box-shadow: 0 1px 2px rgba(0,0,0,.15);
+        padding: 1em;
       }
-
-      /* Page header tweaks */
-      .page-header {
-        background-color: #f5f5f5;
-        padding: 20px 20px 10px;
-        margin: -20px -20px 20px;
+      body {
+        padding-top: 60px;
+        padding-bottom: 40px;
       }
-
-      /* Styles you shouldn't keep as they are for displaying this base example only */
-      .content .span10,
-      .content .span4 {
-        min-height: 500px;
-      }
-      /* Give a quick and non-cross-browser friendly divider */
-      .content .span4 {
-        margin-left: 0;
-        padding-left: 19px;
-        border-left: 1px solid #eee;
-      }
-
-      .topbar .btn {
-        border: 0;
-      }
-
+      .sidebar-nav {  padding: 9px 0;      }
     </style>
 
     <!-- Le fav and touch icons -->
@@ -92,50 +53,50 @@ ac = self.ApplicationCtx
 
   <body>
 
-    <div class="topbar">
-      <div class="fill">
-        <div class="container">
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container-fluid">
           <a class="brand" href="/<%=self.Request.getParameter('siteroot', '')%>/start"><%=ac.siteinfo['sitename']%></a>
-          <ul class="nav">
-            <li class="active"><a href="/<%=self.Request.getParameter('siteroot', '')%>/start">Home</a></li>
-            <li><a href="/<%=self.Request.getParameter('siteroot', '')%>/site/about">About</a></li>
-          </ul>
-          <form  action="/<%=self.Request.getParameter('siteroot', '')%>/meta/Search" method="get" accept-charset="utf-8" class="pull-right">
-            <input class="input-small" name="q" type="text" placeholder="Search">
-            <button class="btn" type="submit">Go</button>
-          </form>
+          <div class="nav-collapse">
+            <ul class="nav">
+                <li class="active"><a href="/<%=self.Request.getParameter('siteroot', '')%>/start">Home</a></li>
+                <li><a href="/<%=self.Request.getParameter('siteroot', '')%>/site/about">About</a></li>
+            </ul>
+            <form action="/<%=self.Request.getParameter('siteroot', '')%>/meta/Search" method="get" accept-charset="utf-8" class="pull-right navbar-search">
+            <input class="search-query span2" name="q" type="text" placeholder="Search">
+            </form>
+          </div>
         </div>
       </div>
     </div>
-
-    <div class="container">
-
-      <div class="content">
-        <div class="page-header">
-          <h1><%=self.Request.getParameter('title','Untitled Page')%>
- <small><!-- TODO: add metadata here --></small></h1>
-        </div>
-        <div class="row">
-          <div class="span10">
-            <%=self.Request.getParameter('postbody','')%>
-          </div>
-          <div class="span4">
-            <h3>Links</h3>
-            <ul>
-            <li><a href="/<%=self.Request.getParameter('siteroot', '')%>/meta/Archives">Archives</a></li>
-            <li><a href="/<%=self.Request.getParameter('siteroot', '')%>/meta/Index">Index</a></li>
-            <li><a href="/<%=self.Request.getParameter('siteroot', '')%>/meta/RecentUpdates">Recent Updates</a></li>
-             </ul>
-          </div>
-          <div class="span14">
-             <%
-             if self.Request.getParameter('path', '') != "home":
-               self.write( '%s' % self.Request.getParameter('seealso',''))
-             %>
-          </div>
-        </div>
+    <div class="container-fluid">
+      <div class="page-header">
+          <h1><%=self.Request.getParameter('title','Untitled Page')%><small><!-- TODO: add metadata here --></small></h1>
       </div>
+      <div class="row-fluid">
+            <div class="span9">
+              <div class="content">
+                <%=self.Request.getParameter('postbody','')%>
+      <hr>
+                <%
+if self.Request.getParameter('path', '') != "home":
+  self.write( '%s' % self.Request.getParameter('seealso',''))
+%>
 
+              </div>
+            </div>
+            <div class="span3">
+              <div class="well sidebar-nav">
+                <ul class="nav nav-list">
+                <li class="nav-header">Links</li>
+                <li><a href="/<%=self.Request.getParameter('siteroot', '')%>/meta/Archives">Archives</a></li>
+                <li><a href="/<%=self.Request.getParameter('siteroot', '')%>/meta/Index">Index</a></li>
+                <li><a href="/<%=self.Request.getParameter('siteroot', '')%>/meta/RecentUpdates">Recent Updates</a></li>
+                </ul>
+              </div>
+            </div>
+     </div>
+      <hr>
       <footer>
         <p>Powered by <a href="https://github.com/rcarmo/Yaki">Yaki</a>. Themed by <a href="http://twitter.github.com/bootstrap/">Bootstrap</a>. Batteries included.</p>
       </footer>
