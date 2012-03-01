@@ -171,14 +171,7 @@ setEncoding(encoding)
 forces the request character encoding. This is often necessary to correctly read non-ASCII characters from From Posts. Also note that returned form fields will be unicode objects (instead of regular strings) if you set the encoding.
   If you try to change the encoding after the request form fields have already been accessed, a ValueError will be raised.
   Using this method will override a defaultRequestEncoding that may be defined on the webapp.
- 
-  </tbody>
-</table>
+
 <p>Getting request parameters is done using <code>getForm()</code>, or <code>getParameter()</code>. You can clear all parameters for the duration of the reqeuest using <code>getForm().clear()</code> (because it is just a dict).
  If you need to add or modify request parameters from inside your code, you should update the appropriate keys in the dict object
  that is returned from <code>getForm()</code>.</p>
-<address>
-Snakelets manual - <a href="index.html">Back to index</a>
-</address>
-</body>
-</html>

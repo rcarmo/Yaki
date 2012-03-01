@@ -116,7 +116,6 @@ A tuple (method, argument) that defines the user authentication method to use fo
 ### `def authorizeUser(method, url, user, passwd, request): ...` ### 
 
 An authorization handler you must implement if let Snakelets perform user authentication, and which is responsible for username/password validation. See [authorization][auth]. 
-    
 
 ### `def init(webapp): ...` ###
 

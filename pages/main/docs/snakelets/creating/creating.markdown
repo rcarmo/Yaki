@@ -6,3 +6,4 @@ Web applications under Snakelets are a set of structured files in one or more di
 * Dynamic content files such as Ypages
 * web application code itself ([Python][p] source code files)
 
+[p]: Python

@@ -55,12 +55,18 @@ the changes you have made in your browser.</p>
 <p>To avoid problems and performance issues, the automatic reloading is limited to the Ypage source file
 (and templates, if any) and the snakelet module file. Imported modules are <em>not</em> reloaded.
 </p>
-<h4><strong>Directory Listings</strong></h4>
+
+#### Directory Listings ####
+
 Snakelets will show a listing of the contents of a directory if you navigate to it in the browser.
+
 By default this funcion is disabled. Enable it by using an appropriate `dirListAllower` function in the webapp init file.
-You can supply a special '`.snindex`' file inside the directory to add extra information to the directory listing.
-It is a file with two configuration sections, for example:
-<pre>
+
+You can supply a special `.snindex` file inside the directory to add extra information to the directory listing.
+
+It is a file with two configuration sections like so:
+
+<pre syntax="ini">
 [hidden]
 .svn=
 
@@ -68,9 +74,7 @@ It is a file with two configuration sections, for example:
 file.txt=Just a text file
 </pre>
 
-In the [hidden] section you put all names that you don't want to show up in the list (mind the '='!).
-In the [filedescriptions] section you put all names with a comment text that you want to be shown in that entry's comment column in the listing.
-    
+In the `hidden` section you put all names that you don't want to show up in the listing (mind the '='!).
+In the `filedescriptions` section you put all names with a comment text that you want to be shown in that entry's comment column in the listing.
 
-
-    [auth]: docs/snakelets/authorization
+[auth]: docs/snakelets/authorization
