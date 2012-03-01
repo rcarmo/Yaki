@@ -1,13 +1,24 @@
 ## Virtual Hosts ##
 
-To make your web application available on multiple hosts, you have to add it to the virtual host configuration file. See <a href="starting.html">Starting the Server</a>.</p>
-<p><strong>Python module/package names:</strong> There is a big catch concerning the naming of your packages and modules in the web apps (for instance, the package where your snakelets are in, or the name(s) of the modules that contain your snakelets). <em>They are not unique over all web applications (because every webapp's directory is placed in Python's module search path)!</em> This means that you cannot have a module or package called `snakelets` in one webapp and also a module or package with that name in another web application. This also means that your code is not protected from (ab)use by another web application. <em>This wil very likely not be fixed, so keep this in mind!</em></p>
-<p><strong>Shared modules/libraries: </strong>place modules and packages that you want to easily share between webapps in the `userlibs` directory, as described in <a href="starting.html">Starting and Configuring</a>. </p>
-<h3>Create pages for the web application</h3>
-<p>Let's say that you have created a web application `testapp` and that it has a `docroot` directory where you will put your page files, so you must point the docroot attribute to it in the webapp's init file, as described above. The files in that directory will now be accessible in your browser by using the url base: <strong>http://server.com/testapp/</strong></p>
-<p>The index page of the webapp will be shown if you type <strong>http://server.com/testapp/</strong> or <strong>http://server.com/testapp</strong> in your browser. The trailing slash is not really required; you will be redirected to a correct url if it is missing.
-    (except when there is a page in the root webapp with the same name, in this case the page is loaded and you will not be redirected).</p>
-<p>Snakelets maps the rest of the URL to the filesystem (=the contents of the docroot directory) in a rather straightforward way, much the same as a normal web server such as Apache does this. A path component in the url maps to a directory on disk, and a file component usually maps to a file on disk. So that means that when the url <strong>http://server.com/testapp/office/page.html</strong> is requested, Snakelets will return the `page.html` file from the `office` directory in the docroot location. For Ypages it is the same, <strong>http://server.com/testapp/office/login.y </strong>will cause Snakelets to load and run the `login.y` ypage in the given location. </p>
+To make your web application available on multiple hosts, you have to add it to the virtual host configuration file. 
+
+> See [Starting the Server](docs/snakelets/Starting)
+
+## Python module/package names ##
+
+There is a big catch concerning the naming of your packages and modules in the web apps (for instance, the package where your snakelets are in, or the name(s) of the modules that contain your snakelets). <em>They are not unique over all web applications (because every webapp's directory is placed in Python's module search path)!</em> This means that you cannot have a module or package called `snakelets` in one webapp and also a module or package with that name in another web application. This also means that your code is not protected from (ab)use by another web application. <em>This will very likely not be fixed, so keep this in mind!</em>
+
+## Shared modules/libraries ##
+
+Place modules and packages that you want to easily share between webapps in the `userlibs` directory.
+
+### Create pages for the web application ###
+
+Let's say that you have created a web application `testapp` and that it has a `docroot` directory where you will put your page files, so you must point the docroot attribute to it in the webapp's init file, as described above. The files in that directory will now be accessible in your browser by using the url `http://server.com/testapp/`
+
+The index page of the webapp will be shown if you type `http://server.com/testapp/` or `http://server.com/testapp` in your browser - the trailing slash is not really required; you will be redirected to a correct url if it is missing (except when there is a page in the root webapp with the same name, in this case the page is loaded and you will not be redirected).
+
+Snakelets maps the rest of the URL to the filesystem (=the contents of the docroot directory) in a rather straightforward way, much the same as a normal web server such as Apache does this. A path component in the url maps to a directory on disk, and a file component usually maps to a file on disk. So that means that when the url <strong>http://server.com/testapp/office/page.html</strong> is requested, Snakelets will return the `page.html` file from the `office` directory in the docroot location. For Ypages it is the same, <strong>http://server.com/testapp/office/login.y </strong>will cause Snakelets to load and run the `login.y` ypage in the given location. </p>
 <p>It is <em>impossible</em> to request files outside the docroot location this way. That is nice, because you can protect your other files (web app source code and such) very easily just by placing them in a different directory as your web pages. You could fool around with the documentAllower function but this is more convenient and faster.</p>
 <p>There is a big exception to the simple URL-to-filesystem mapping: <em><a href="snakelet.html">Snakelets</a>. </em>Dynamic content created by a snakelet page is not found on disk in the regular way. Instead, there is a <em>snakelet</em> object defined in your Python source code that is called by the server when a URL is requested that triggers the snakelet. Which URLs trigger which snakelets, is configured in the `snakelets` attribute in your webapp init file (see above). Because you can use simple wildcard patterns there, a lot of URLs may be mapped onto a single snakelet object. </p>
 <p>The server uses the following order to determine what is returned for a requested URL:</p>
@@ -58,7 +69,7 @@ the changes you have made in your browser.</p>
 
 #### Directory Listings ####
 
-Snakelets will show a listing of the contents of a directory if you navigate to it in the browser.
+[Snakelets][s] will show a listing of the contents of a directory if you navigate to it in the browser.
 
 By default this funcion is disabled. Enable it by using an appropriate `dirListAllower` function in the webapp init file.
 
@@ -78,3 +89,4 @@ In the `hidden` section you put all names that you don't want to show up in the 
 In the `filedescriptions` section you put all names with a comment text that you want to be shown in that entry's comment column in the listing.
 
 [auth]: docs/snakelets/authorization
+[s]: docs/snakelets
