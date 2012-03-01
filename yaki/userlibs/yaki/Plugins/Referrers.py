@@ -19,7 +19,7 @@ class ReferrersWikiPlugin(yaki.Plugins.WikiPlugin):
     self.i18n = yaki.Locale.i18n[self.ac.locale]
   
   def run(self, serial, tag, tagname, pagename, soup, request, response):
-    buffer = [u'<table class="compact"><tr><th>%s (%s)</th><th>%s (%s)</th></tr><tbody>' % (self.i18n['Page'],self.i18n['Hits'],self.i18n['Referrers'],self.i18n['Hits'])]
+    buffer = [u'<table class="table table-condensed"><tr><th>%s (%s)</th><th>%s (%s)</th></tr><tbody>' % (self.i18n['Page'],self.i18n['Hits'],self.i18n['Referrers'],self.i18n['Hits'])]
     data = self.ac.referrers.getData()
     pages = data.keys()
     # sort pages by decreasing timestamp of last hit

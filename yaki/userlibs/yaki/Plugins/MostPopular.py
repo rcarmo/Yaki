@@ -27,7 +27,7 @@ class MostPopularWikiPlugin(yaki.Plugins.WikiPlugin):
     if src not in ['time', 'hits']:
       src = 'hits'
       
-    buffer = [u'<table class="compact"><tr><th>%s</th><th>%s</th></tr><tbody>' % (self.i18n['Page'],self.i18n['Hits'])]
+    buffer = [u'<table class="table table-condensed"><tr><th>%s</th><th>%s</th></tr><tbody>' % (self.i18n['Page'],self.i18n['Hits'])]
     data = self.ac.indexer.pageinfo
     # find pages with hit counts
     pages = [x for x in data.keys() if 'x-hit-count' in data[x].keys()]

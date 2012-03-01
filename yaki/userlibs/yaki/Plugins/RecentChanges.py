@@ -19,7 +19,7 @@ class RecentChangesWikiPlugin(yaki.Plugins.WikiPlugin):
 
   def run(self, serial, tag, tagname, pagename, soup, request, response):    
     recent = self.ac.indexer.recent[:50]
-    buffer = [u'<table class="compact"><tr><th>%s</th><th>%s</th><th>%s</th></tr><tbody>' % (self.i18n['Page'],self.i18n['Created'],self.i18n['Modified'])]
+    buffer = [u'<table class="table table-condensed"><tr><th>%s</th><th>%s</th><th>%s</th></tr><tbody>' % (self.i18n['Page'],self.i18n['Created'],self.i18n['Modified'])]
     for name in recent:
       try:
         headers = self.ac.indexer.pageinfo[name]

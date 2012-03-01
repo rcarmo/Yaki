@@ -52,7 +52,7 @@ class SearchWikiPlugin(yaki.Plugins.WikiPlugin):
       buffer.append(u'<p>%s <b>"%s"</b>.</p>' % (self.i18n['no_results'], q))
     else:
       buffer.append(u'<p>%s <b>"%s"</b>:</p>' % (self.i18n['search_results'], q))
-      buffer.append(u'<table class="compact" width="100%%"><thead><tr><th>%s</th><th>%s</th><th>%s</th></tr></thead><tbody>' % (self.i18n['Page'], self.i18n['Created'], self.i18n['Updated']))
+      buffer.append(u'<table class="table table-condensed" width="100%%"><thead><tr><th>%s</th><th>%s</th><th>%s</th></tr></thead><tbody>' % (self.i18n['Page'], self.i18n['Created'], self.i18n['Updated']))
       # transform result into array
       hits = [hit for hit in hits]
       # Sort hits by last-modified date, which is indexed

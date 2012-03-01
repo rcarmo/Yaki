@@ -35,46 +35,37 @@ Returns the HTTP port in use as an integer.
 
 Returns the URL path and query string (i.e., `/page/test.cgi?arg=34`) as a string. Use with the `getBaseURL` method to assemble a complete URL.  
  
-getRequestURLplain()
-like getRequestURL, but also without any query args. Use with the next method (getBaseURL) to obtain a complete URL without query args.
+### `getRequestURLplain()` ###
+
+like `getRequestURL`, but also without any query args. Use with the next method (`getBaseURL`) to obtain a complete URL without query args.
  
- 
-getBaseURL()
+### `getBaseURL()` ###
 the base URL of the server. Example: `http://desertfish.xs4all.nl:9080`
+
+### `getPathInfo()` ###
+any additional URL path components after the snakelet URL. Example: when url is `snoop.sn/foo/bar?arg=value`, it returns `/foo/bar`. (Note: this is always empty when you use a `fnmatch` URL pattern for your snakelet!) (this string is <em>not</em> url-escaped)
  
- 
-getPathInfo()
-any additional URL path components after the snakelet URL. Example: when url is 'snoop.sn/foo/bar?arg=value', it returns `/foo/bar`. (Note: this is always empty when you use a fnmatch URL pattern for your snakelet!) (this string is <em>not</em> url-escaped)
- 
- 
-getMethod()
+### `getMethod()` ###
 the HTTP method used (`GET` or `POST`)
- 
- 
-getQuery()
+
+### `getQuery()` ###
 the query args of the URL, example: `arg=value&amp;name=foo%21`. (this string <em>is still</em> url-escaped)
  
- 
-getFullQueryArgs()
+### `getFullQueryArgs()` ###
 all the query args including path info and command, example: `/zip/zap?delete&amp;arg=value&amp;name=foo%21` (note: this is not the full URL! You can get that one from the Snakelet) (this string <em>is still</em> url-escaped)
- 
- 
-getRemoteHost()
+
+### `getRemoteHost()` ###
 hostname of the remote host (string)
- 
- 
-getRemoteAddr()
+
+### `getRemoteAddr()` ###
 IP address of the remote host (string)
  
- 
-getRealRemoteAddr()
-the 'real' IP address of the remote host (use this if you are running via Apache Proxy module)
- 
- 
-getContentType()
+### `getRealRemoteAddr()` ###
+the 'real' IP address of the remote host (use this if you are running behind a reverse proxy)
+
+### `getContentType()` ###
 the content-type of the request (string)
- 
- 
+
 getContentLength()
 content length of the request (int)
  

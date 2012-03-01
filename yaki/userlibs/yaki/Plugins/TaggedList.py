@@ -23,7 +23,7 @@ class TaggedListWikiPlugin(yaki.Plugins.WikiPlugin):
       tag.replaceWith(self.i18n['warning_message_format'] % self.i18n['indexing_message'])
       return False
     
-    buffer = [u'<table class="compact"><thead><tr><th>%s</th><th>%s</th></tr></thead><tbody>' % (self.i18n['Created'],self.i18n['Title'])]
+    buffer = [u'<table class="table table-condensed"><thead><tr><th>%s</th><th>%s</th></tr></thead><tbody>' % (self.i18n['Created'],self.i18n['Title'])]
     try:
       if tag['title'].lower() == 'no':
         buffer = [u'<table class="compact borderless"><tbody>']
