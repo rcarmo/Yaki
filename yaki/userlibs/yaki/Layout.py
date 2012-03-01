@@ -36,14 +36,21 @@ def renderEntryMetaData(i18n, headers, short = True):
   * Updated:
   * By:
   * Tags:
+  
+  TODO: move some of this to a template
   """
   fields = ['created','updated','author','tags','references']
-  items  = ['<li class="meta-%s">$%s</li>' % (x,x) for x in fields]
-  format = '<b class="meta-color">%s</b><br><p class="meta-atom">%s</p>'
+  items  = ['<span class="meta-%s">$%s</span> ' % (x,x) for x in fields]
+  format = '<span class="meta-field">%s</span><span class="meta-atom">%s</span> '
   if short == True:
-    created = '<p class="meta-fuzzy"><b>%s</b></p>' % fuzzyTime(i18n, headers['date'])
+    created = '<span class="meta-fuzzy label label-info">%s</span> ' % fuzzyTime(i18n, headers['date'])
+    
     try:    
-      tags = '<p class="meta-atom">%s</p>' % headers['tags'].lower()
+      # TODO: recast this as a map. I want to make sure I can debug some Unicode hassles easily for now.
+      tags = [tag.strip() for tag in headers['tags'].lower().split(",")]
+      tags.sort()
+      tags = filter(lambda x: len(x),tags) 
+      tags = ' '.join(['<span class="label">%s</span>' % tag for tag in tags])
     except:
       pass
   else:
