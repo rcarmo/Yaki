@@ -28,23 +28,9 @@ ac = self.ApplicationCtx
     <!-- Le styles -->
     <link href="/themes/<%=self.Request.getParameter('theme', '')%>/css/bootstrap.css" rel="stylesheet">
     <link href="/themes/<%=self.Request.getParameter('theme', '')%>/css/syntax.css" rel="stylesheet">
-    <style type="text/css">
-      /* Override some defaults */
-      html, body {
-        background-color: #eee;
-      }
-      .content {
-        background-color: #fff;
-        padding: 1em;
-      }
-      body {
-        padding-top: 60px;
-        padding-bottom: 40px;
-      }
-      .sidebar-nav {  padding: 9px 0;      }
-    </style>
-
-    <!-- Le fav and touch icons -->
+    <!-- Yaki specifics -->
+    <link href="/themes/<%=self.Request.getParameter('theme', '')%>/css/yaki.css" rel="stylesheet">
+    <link href="/themes/<%=self.Request.getParameter('theme', '')%>/css/bootstrap-responsive.css" rel="stylesheet">
     <link rel="shortcut icon" href="/themes/<%=self.Request.getParameter('theme', '')%>/img/favicon.ico">
     <link rel="apple-touch-icon" href="/themes/<%=self.Request.getParameter('theme', '')%>/img/apple-touch-icon-57x57.png">
     <link rel="apple-touch-icon" sizes="72x72" href="/themes/<%=self.Request.getParameter('theme', '')%>/img/apple-touch-icon-72x72.png">
@@ -56,6 +42,11 @@ ac = self.ApplicationCtx
     <div class="navbar navbar-fixed-top">
       <div class="navbar-inner">
         <div class="container-fluid">
+          <a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </a>
           <a class="brand" href="/<%=self.Request.getParameter('siteroot', '')%>/start"><%=ac.siteinfo['sitename']%></a>
           <div class="nav-collapse">
             <ul class="nav">
@@ -102,6 +93,7 @@ if self.Request.getParameter('path', '') != "home":
       </footer>
 
     </div> <!-- /container -->
-
+    <script src="/themes/<%=self.Request.getParameter('theme', '')%>/js/jquery-1.7.1.js"></script>
+    <script src="/themes/<%=self.Request.getParameter('theme', '')%>/js/bootstrap.js"></script>
   </body>
 </html>
