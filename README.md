@@ -2,6 +2,7 @@
 
 ## Latest update:
 
+* [2012-03-01](https://github.com/rcarmo/Yaki/blob/35d9db7ba02c68973da230986c89295edb8264e5/pages/main/blog/2012/03/01/2205/index.md)
 * [2011-11-20](https://github.com/rcarmo/Yaki/blob/ae8de89fd7a4bc2cac53cb3c72d04321de4952b3/pages/main/blog/2011/11/20/1706/index.md)
 
 ## About
