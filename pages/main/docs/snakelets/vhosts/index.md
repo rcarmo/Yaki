@@ -1,4 +1,8 @@
-## Virtual Hosts ##
+From: Rui Carmo
+Date: 2012-03-03 23:10:00
+Content-Type: text/x-markdown
+Title: Virtual Hosts
+Tags: snakelets, docs, draft
 
 To make your web application available on multiple hosts, you have to add it to the virtual host configuration file. 
 

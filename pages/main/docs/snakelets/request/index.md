@@ -1,9 +1,8 @@
 From: Rui Carmo
-Date: 2012-03-03 23:43:00
+Date: 2012-03-03 23:03:00
 Content-Type: text/x-markdown
 Title: Request
-
-## Request Object ##
+Tags: snakelets, docs, draft
 
 A request object provides all the information you need to handle HTTP requests in your snakelets' `serve` method, and has the following methods:
 
