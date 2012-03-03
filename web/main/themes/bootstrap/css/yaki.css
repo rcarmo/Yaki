@@ -1,0 +1,18 @@
+/* Override some defaults */
+html, body {
+    background-color: white;
+}
+.content {
+    background-color: #fff;
+    padding: 1em;
+}
+body {
+    padding-top: 60px;
+    padding-bottom: 40px;
+}
+.sidebar-nav {
+    padding: 9px 0;
+}
+.entry-title {
+    margin-top: 1em;
+}
