@@ -29,9 +29,7 @@ from __future__ import with_statement
 from bisect import bisect_right
 
 from whoosh.fields import UnknownFieldError
-from whoosh.filedb.fileindex import Segment
 from whoosh.store import LockError
-from whoosh.support.dawg import DawgBuilder
 from whoosh.support.filelock import try_for
 from whoosh.support.externalsort import SortingPool
 from whoosh.util import fib
@@ -59,9 +57,10 @@ def MERGE_SMALL(writer, segments):
     from whoosh.filedb.filereading import SegmentReader
 
     newsegments = []
-    sorted_segment_list = sorted((s.doc_count_all(), s) for s in segments)
+    sorted_segment_list = sorted(segments, key=lambda s: s.doc_count_all())
     total_docs = 0
-    for i, (count, seg) in enumerate(sorted_segment_list):
+    for i, seg in enumerate(sorted_segment_list):
+        count = seg.doc_count_all()
         if count > 0:
             total_docs += count
             if total_docs < fib(i + 5):
@@ -108,16 +107,27 @@ class PostingPool(SortingPool):
             self.save()
         self.current.append(item)
 
+    def iter_postings(self):
+        # This is just an alias for items() to be consistent with the
+        # iter_postings()/add_postings() interface of a lot of other classes
+        return self.items()
+
     def save(self):
         SortingPool.save(self)
         self.currentsize = 0
+
+
+def renumber_postings(reader, startdoc, docmap):
+    for fieldname, text, docnum, weight, value in reader.iter_postings():
+        newdoc = docmap[docnum] if docmap else startdoc + docnum
+        yield (fieldname, text, newdoc, weight, value)
 
 
 # Writer object
 
 class SegmentWriter(IndexWriter):
     def __init__(self, ix, poolclass=None, timeout=0.0, delay=0.1, _lk=True,
-                 limitmb=128, docbase=0, codec=None, **kwargs):
+                 limitmb=128, docbase=0, codec=None, compound=True, **kwargs):
         # Lock the index
         self.writelock = None
         if _lk:
@@ -125,6 +135,11 @@ class SegmentWriter(IndexWriter):
             if not try_for(self.writelock.acquire, timeout=timeout,
                            delay=delay):
                 raise LockError
+
+        if codec is None:
+            from whoosh.codec import default_codec
+            codec = default_codec()
+        self.codec = codec
 
         # Get info from the index
         self.storage = ix.storage
@@ -137,19 +152,20 @@ class SegmentWriter(IndexWriter):
         self._setup_doc_offsets()
 
         # Internals
+        self.compound = compound
         poolprefix = "whoosh_%s_" % self.indexname
         self.pool = PostingPool(limitmb=limitmb, prefix=poolprefix)
-        self.newsegment = Segment(self.indexname, 0)
+        newsegment = self.newsegment = codec.new_segment(self.storage,
+                                                         self.indexname)
         self.is_closed = False
         self._added = False
 
         # Set up writers
-        if codec is None:
-            from whoosh.codec.standard import StdCodec
-            codec = StdCodec(self.storage)
-        self.codec = codec
-        self.perdocwriter = codec.per_document_writer(self.newsegment)
-        self.fieldwriter = codec.field_writer(self.newsegment)
+        self.perdocwriter = codec.per_document_writer(self.storage, newsegment)
+        self.fieldwriter = codec.field_writer(self.storage, newsegment)
+
+    def __repr__(self):
+        return "<%s %r>" % (self.__class__.__name__, self.newsegment)
 
     def _setup_doc_offsets(self):
         self._doc_offsets = []
@@ -224,64 +240,96 @@ class SegmentWriter(IndexWriter):
         return FileIndex._reader(self.storage, self.schema, self.segments,
                                  self.generation, reuse=reuse)
 
-    def add_reader(self, reader):
-        self._check_state()
-        perdocwriter = self.perdocwriter
-        startdoc = newdoc = self.docnum
+    def iter_postings(self):
+        return self.pool.iter_postings()
 
+    def add_postings(self, lengths, items, startdoc, docmap):
+        # items = (fieldname, text, docnum, weight, valuestring) ...
+        schema = self.schema
+
+        # Make a generator to strip out deleted fields and renumber the docs
+        # before passing them down to the field writer
+        def gen():
+            for fieldname, text, docnum, weight, valuestring in items:
+                if fieldname not in schema:
+                    continue
+                if docmap is not None:
+                    newdoc = docmap[docnum]
+                else:
+                    newdoc = startdoc + docnum
+                yield (fieldname, text, newdoc, weight, valuestring)
+
+        self.fieldwriter.add_postings(schema, lengths, gen())
+
+    def _make_docmap(self, reader, newdoc):
+        # If the reader has deletions, make a dictionary mapping the docnums
+        # of undeleted documents to new sequential docnums starting at newdoc
         hasdel = reader.has_deletions()
         if hasdel:
-            # Documents will be renumbered because the deleted documents will
-            # be skipped, so keep a mapping between old and new docnums
             docmap = {}
-        newfields = dict(self.schema.items())
-        sharedfields = set(newfields) & set(reader.schema.names())
+            for docnum in reader.all_doc_ids():
+                if reader.is_deleted(docnum):
+                    continue
+                docmap[docnum] = newdoc
+                newdoc += 1
+        else:
+            docmap = None
+            newdoc += reader.doc_count_all()
+        # Return the map and the new lowest unused document number
+        return docmap, newdoc
 
-        # Add per-document values
+    def _merge_per_doc(self, reader, docmap):
+        schema = self.schema
+        newdoc = self.docnum
+        perdocwriter = self.perdocwriter
+        sharedfields = set(schema.names()) & set(reader.schema.names())
+
         for docnum in reader.all_doc_ids():
             # Skip deleted documents
-            if (not hasdel) or (not reader.is_deleted(docnum)):
-                if hasdel:
-                    docmap[docnum] = newdoc
+            if docmap and docnum not in docmap:
+                continue
+            # Renumber around deletions
+            if docmap:
+                newdoc = docmap[docnum]
 
-                # Get the stored fields
-                d = reader.stored_fields(docnum)
-                # Start a new document in the writer
-                perdocwriter.start_doc(newdoc)
-                # For each field in the document, copy its stored value,
-                # length, and vectors (if any) to the writer
-                for fieldname in sharedfields:
-                    field = newfields[fieldname]
-                    length = (reader.doc_field_length(docnum, fieldname, 0)
-                              if field.scorable else 0)
-                    perdocwriter.add_field(fieldname, field, d.get(fieldname),
-                                           length)
-                    if field.vector and reader.has_vector(docnum, fieldname):
-                        v = reader.vector(docnum, fieldname)
-                        perdocwriter.add_vector_matcher(fieldname, field, v)
-                # Finish the new document 
-                perdocwriter.finish_doc()
-                newdoc += 1
-        self.docnum = newdoc
+            # Get the stored fields
+            d = reader.stored_fields(docnum)
+            # Start a new document in the writer
+            perdocwriter.start_doc(newdoc)
+            # For each field in the document, copy its stored value,
+            # length, and vectors (if any) to the writer
+            for fieldname in sharedfields:
+                field = schema[fieldname]
+                length = (reader.doc_field_length(docnum, fieldname, 0)
+                          if field.scorable else 0)
+                perdocwriter.add_field(fieldname, field, d.get(fieldname),
+                                       length)
+                if field.vector and reader.has_vector(docnum, fieldname):
+                    v = reader.vector(docnum, fieldname)
+                    perdocwriter.add_vector_matcher(fieldname, field, v)
+            # Finish the new document
+            perdocwriter.finish_doc()
+            newdoc += 1
 
+    def _merge_fields(self, reader, docmap):
         # Add inverted index postings to the pool, renumbering document number
         # references as necessary
         add_post = self.pool.add
-        for fieldname, text in reader.all_terms():
-            if fieldname in newfields:
-                pr = reader.postings(fieldname, text)
-                while pr.is_active():
-                    # Read the current values
-                    docnum = pr.id()
-                    weight = pr.weight()
-                    valuestring = pr.value()
-                    # Remap the document number if necessary
-                    newdoc = docmap[docnum] if hasdel else startdoc + docnum
-                    # Add the posting to the pool
-                    add_post((fieldname, text, newdoc, weight, valuestring))
-                    # Advanced the matcher
-                    pr.next()
+        # Note: iter_postings() only yields postings for undeleted docs
+        for p in renumber_postings(reader, self.docnum, docmap):
+            add_post(p)
 
+    def add_reader(self, reader):
+        self._check_state()
+
+        # Make a docnum map to renumber around deleted documents
+        docmap, newdoc = self._make_docmap(reader, self.docnum)
+        # Add per-document values
+        self._merge_per_doc(reader, docmap)
+        # Add field postings
+        self._merge_fields(reader, docmap)
+
+        self.docnum = newdoc
         self._added = True
 
     def _check_fields(self, schema, fieldnames):
@@ -321,7 +369,6 @@ class SegmentWriter(IndexWriter):
                 items = field.index(value)
                 # Only store the length if the field is marked scorable
                 scorable = field.scorable
-                length = 0
                 # Add the terms to the pool
                 for text, freq, weight, valuestring in items:
                     #assert w != ""
@@ -362,13 +409,64 @@ class SegmentWriter(IndexWriter):
         self._added = True
         self.docnum += 1
 
-    def _close_all(self):
-        self.is_closed = True
-        self.perdocwriter.close()
-        self.fieldwriter.close()
-
     def doc_count(self):
         return self.docnum - self.docbase
+
+    def get_segment(self):
+        newsegment = self.newsegment
+        newsegment.doccount = self.doc_count()
+        return newsegment
+
+    def _merge_segments(self, mergetype, optimize, merge):
+        if mergetype:
+            pass
+        elif optimize:
+            mergetype = OPTIMIZE
+        elif not merge:
+            mergetype = NO_MERGE
+        else:
+            mergetype = MERGE_SMALL
+
+        # Call the merge policy function. The policy may choose to merge
+        # other segments into this writer's pool
+        return mergetype(self, self.segments)
+
+    def _flush_segment(self):
+        lengths = self.perdocwriter.lengths_reader()
+        postings = self.pool.iter_postings()
+        self.fieldwriter.add_postings(self.schema, lengths, postings)
+
+    def _close_segment(self):
+        self.perdocwriter.close()
+        self.fieldwriter.close()
+        self.pool.cleanup()
+
+    def _assemble_segment(self):
+        if self.compound:
+            # Assemble the segment files into a compound file
+            newsegment = self.get_segment()
+            newsegment.create_compound_file(self.storage)
+            newsegment.compound = True
+
+    def _commit_toc(self, segments):
+        # Write a new TOC with the new segment list (and delete old files)
+        self.codec.commit_toc(self.storage, self.indexname, self.schema,
+                              segments, self.generation)
+
+    def _finish(self):
+        if self.writelock:
+            self.writelock.release()
+        self.is_closed = True
+        #self.storage.close()
+
+    def _partial_segment(self):
+        # For use by a parent multiprocessing writer: Closes out the segment
+        # but leaves the pool files intact so the parent can access them
+        self._check_state()
+        self.perdocwriter.close()
+        self.fieldwriter.close()
+        # Don't call self.pool.cleanup()! We want to grab the pool files.
+        return self.get_segment()
 
     def commit(self, mergetype=None, optimize=False, merge=True):
         """Finishes writing and saves all additions and changes to disk.
@@ -399,54 +497,33 @@ class SegmentWriter(IndexWriter):
         """
 
         self._check_state()
-        schema = self.schema
         try:
-            if mergetype:
-                pass
-            elif optimize:
-                mergetype = OPTIMIZE
-            elif not merge:
-                mergetype = NO_MERGE
-            else:
-                mergetype = MERGE_SMALL
-
-            # Call the merge policy function. The policy may choose to merge
-            # other segments into this writer's pool
-            finalsegments = mergetype(self, self.segments)
-
+            # Merge old segments if necessary
+            finalsegments = self._merge_segments(mergetype, optimize, merge)
             if self._added:
-                # Update the new segment with the current doc count
-                newsegment = self.newsegment
-                newsegment.doccount = self.doc_count()
-
-                # Output the sorted pool postings to the terms index and
-                # posting files
-                lengths = self.perdocwriter.lengths_reader()
-                self.fieldwriter.add_iter(schema, lengths, self.pool.items())
+                # Finish writing segment
+                self._flush_segment()
+                # Close segment files
+                self._close_segment()
+                # Assemble compound segment if necessary
+                self._assemble_segment()
 
                 # Add the new segment to the list of remaining segments
                 # returned by the merge policy function
-                finalsegments.append(newsegment)
+                finalsegments.append(self.get_segment())
             else:
-                self.pool.cleanup()
-
-            # Close all files, write a new TOC with the new segment list, and
-            # release the lock.
-            self._close_all()
-            self.codec.commit_toc(self.indexname, self.schema, finalsegments,
-                                  self.generation)
+                # Close segment files
+                self._close_segment()
+            # Write TOC
+            self._commit_toc(finalsegments)
         finally:
-            if self.writelock:
-                self.writelock.release()
+            # Final cleanup
+            self._finish()
 
     def cancel(self):
         self._check_state()
-        try:
-            self.pool.cleanup()
-            self._close_all()
-        finally:
-            if self.writelock:
-                self.writelock.release()
+        self._close_segment()
+        self._finish()
 
 
 # Retroactively add spelling files to an existing index
@@ -466,6 +543,7 @@ def add_spelling(ix, fieldnames, commit=True):
     """
 
     from whoosh.filedb.filereading import SegmentReader
+    from whoosh.support import dawg
 
     writer = ix.writer()
     storage = writer.storage
@@ -475,12 +553,13 @@ def add_spelling(ix, fieldnames, commit=True):
     for segment in segments:
         r = SegmentReader(storage, schema, segment)
         f = segment.create_file(storage, ".dag")
-        dawg = DawgBuilder(f, field_root=True)
+        gw = dawg.GraphWriter(f)
         for fieldname in fieldnames:
-            ft = (fieldname,)
+            gw.start_field(fieldname)
             for word in r.lexicon(fieldname):
-                dawg.insert(ft + tuple(word))
-        dawg.close()
+                gw.insert(word)
+            gw.finish_field()
+        gw.close()
 
     for fieldname in fieldnames:
         schema[fieldname].spelling = True

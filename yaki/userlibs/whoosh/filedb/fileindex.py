@@ -25,11 +25,11 @@
 # those of the authors and should not be interpreted as representing official
 # policies, either expressed or implied, of Matt Chaput.
 
-import random, re, sys
+import re, sys
 from time import time, sleep
 
 from whoosh import __version__
-from whoosh.compat import pickle, integer_types, string_type, xrange
+from whoosh.compat import pickle, string_type, xrange
 from whoosh.fields import ensure_schema
 from whoosh.index import (Index, EmptyIndexError, IndexVersionError,
                           _DEF_INDEX_NAME)
@@ -55,7 +55,7 @@ class TOC(object):
 
     @classmethod
     def _segment_pattern(cls, indexname):
-        return re.compile("(_%s_[0-9a-z]+)[.][a-z]+" % indexname)
+        return re.compile("(%s_[0-9a-z]+)[.][a-z]+" % indexname)
 
     @classmethod
     def _latest_generation(cls, storage, indexname):
@@ -175,12 +175,13 @@ def clean_files(storage, indexname, gen, segments):
     # probably be deleted eventually by a later call to clean_files.
 
     current_segment_names = set(s.segment_id() for s in segments)
-
     tocpattern = TOC._pattern(indexname)
     segpattern = TOC._segment_pattern(indexname)
 
     todelete = set()
     for filename in storage:
+        if filename.startswith("."):
+            continue
         tocm = tocpattern.match(filename)
         segm = segpattern.match(filename)
         if tocm:
@@ -242,16 +243,16 @@ class FileIndex(Index):
     def is_empty(self):
         return len(self._read_toc().segments) == 0
 
-    def optimize(self):
-        w = self.writer()
+    def optimize(self, **kwargs):
+        w = self.writer(**kwargs)
         w.commit(optimize=True)
 
     # searcher
 
     def writer(self, procs=1, **kwargs):
         if procs > 1:
-            from whoosh.filedb.multiproc2 import MpWriter
-            return MpWriter(self, **kwargs)
+            from whoosh.filedb.multiproc import MpWriter
+            return MpWriter(self, procs=procs, **kwargs)
         else:
             from whoosh.filedb.filewriting import SegmentWriter
             return SegmentWriter(self, **kwargs)
@@ -343,120 +344,6 @@ class FileIndex(Index):
                 sleep(0.05)
 
 
-class Segment(object):
-    """Do not instantiate this object directly. It is used by the Index object
-    to hold information about a segment. A list of objects of this class are
-    pickled as part of the TOC file.
-    
-    The TOC file stores a minimal amount of information -- mostly a list of
-    Segment objects. Segments are the real reverse indexes. Having multiple
-    segments allows quick incremental indexing: just create a new segment for
-    the new documents, and have the index overlay the new segment over previous
-    ones for purposes of reading/search. "Optimizing" the index combines the
-    contents of existing segments into one (removing any deleted documents
-    along the way).
-    """
-
-    IDCHARS = "0123456789abcdefghijklmnopqrstuvwxyz"
-
-    @classmethod
-    def _random_id(cls, size=12):
-        return "".join(random.choice(cls.IDCHARS) for _ in xrange(size))
-
-    def __init__(self, indexname, doccount=0, segid=None, deleted=None):
-        """
-        :param name: The name of the segment (the Index object computes this
-            from its name and the generation).
-        :param doccount: The maximum document number in the segment.
-        :param term_count: Total count of all terms in all documents.
-        :param deleted: A set of deleted document numbers, or None if no
-            deleted documents exist in this segment.
-        """
-
-        assert isinstance(indexname, string_type)
-        self.indexname = indexname
-        assert isinstance(doccount, integer_types)
-        self.doccount = doccount
-        self.segid = self._random_id() if segid is None else segid
-        self.deleted = deleted
-
-    def __repr__(self):
-        return "<%s %s>" % (self.__class__.__name__, getattr(self, "segid", ""))
-
-    def segment_id(self):
-        if hasattr(self, "name"):
-            # Old segment class
-            return self.name
-        else:
-            return "%s_%s" % (self.indexname, self.segid)
-
-    def make_filename(self, ext):
-        return "%s%s" % (self.segment_id(), ext)
-
-    def create_file(self, storage, ext, **kwargs):
-        """Convenience method to create a new file in the given storage named
-        with this segment's ID and the given extension. Any keyword arguments
-        are passed to the storage's create_file method.
-        """
-
-        fname = self.make_filename(ext)
-        return storage.create_file(fname, **kwargs)
-
-    def open_file(self, storage, ext, **kwargs):
-        """Convenience method to open a file in the given storage named with
-        this segment's ID and the given extension. Any keyword arguments are
-        passed to the storage's open_file method.
-        """
-
-        fname = self.make_filename(ext)
-        return storage.open_file(fname, **kwargs)
-
-    def doc_count_all(self):
-        """
-        :returns: the total number of documents, DELETED OR UNDELETED, in this
-            segment.
-        """
-        return self.doccount
-
-    def doc_count(self):
-        """
-        :returns: the number of (undeleted) documents in this segment.
-        """
-        return self.doccount - self.deleted_count()
-
-    def has_deletions(self):
-        """
-        :returns: True if any documents in this segment are deleted.
-        """
-        return self.deleted_count() > 0
-
-    def deleted_count(self):
-        """
-        :returns: the total number of deleted documents in this segment.
-        """
-        if self.deleted is None:
-            return 0
-        return len(self.deleted)
-
-    def delete_document(self, docnum, delete=True):
-        """Deletes the given document number. The document is not actually
-        removed from the index until it is optimized.
-
-        :param docnum: The document number to delete.
-        :param delete: If False, this undeletes a deleted document.
-        """
-
-        if delete:
-            if self.deleted is None:
-                self.deleted = set()
-            self.deleted.add(docnum)
-        elif self.deleted is not None and docnum in self.deleted:
-            self.deleted.clear(docnum)
-
-    def is_deleted(self, docnum):
-        """:returns: True if the given document number is deleted."""
-
-        if self.deleted is None:
-            return False
-        return docnum in self.deleted
+# Fix for old indexes pickled with whoosh.fileindex.Segment objects
+from whoosh.codec.whoosh2 import W2Segment as Segment  # @UnusedImport
 

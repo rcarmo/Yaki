@@ -28,15 +28,15 @@
 """This module contains classes that allow reading from an index.
 """
 
+from math import log
 from bisect import bisect_right
 from heapq import heapify, heapreplace, heappop, nlargest
 
 from whoosh.compat import xrange, zip_, next
-from whoosh.support.dawg import within
 from whoosh.support.levenshtein import distance
 from whoosh.util import ClosableMixin
 from whoosh.matching import MultiMatcher
-from whoosh.util import abstractmethod
+from whoosh.compat import abstractmethod
 
 
 # Exceptions
@@ -331,6 +331,17 @@ class IndexReader(ClosableMixin):
             return p.id()
         raise TermNotFound((fieldname, text))
 
+    def iter_postings(self):
+        """Low-level method, yields all postings in the reader as
+        ``(fieldname, text, docnum, weight, valuestring)`` tuples.
+        """
+
+        for fieldname, text in self.all_terms():
+            m = self.postings(fieldname, text)
+            while m.is_active():
+                yield (fieldname, text, m.id(), m.weight(), m.value())
+                m.next()
+
     @abstractmethod
     def postings(self, fieldname, text, scorer=None):
         """Returns a :class:`~whoosh.matching.Matcher` for the postings of the
@@ -412,13 +423,13 @@ class IndexReader(ClosableMixin):
         return False
 
     def word_graph(self, fieldname):
-        """Returns the root :class:`whoosh.support.dawg.BaseNode` for the given
+        """Returns the root :class:`whoosh.support.dawg.Node` for the given
         field, if the field has a stored word graph (otherwise raises an
         exception). You can check whether a field has a word graph using
         :meth:`IndexReader.has_word_graph`.
         """
 
-        return None
+        raise KeyError
 
     def corrector(self, fieldname):
         """Returns a :class:`whoosh.spelling.Corrector` object that suggests
@@ -429,9 +440,16 @@ class IndexReader(ClosableMixin):
 
         return ReaderCorrector(self, fieldname)
 
-    def terms_within(self, fieldname, text, maxdist, prefix=0, seen=None):
+    def terms_within(self, fieldname, text, maxdist, prefix=0):
         """Returns a generator of words in the given field within ``maxdist``
         Damerau-Levenshtein edit distance of the given text.
+        
+        Important: the terms are returned in **no particular order**. The only
+        criterion is that they are within ``maxdist`` edits of ``text``. You
+        may want to run this method multiple times with increasing ``maxdist``
+        values to ensure you get the closest matches first. You may also have
+        additional information (such as term frequency or an acoustic matching
+        algorithm) you can use to rank terms with the same edit distance.
         
         :param maxdist: the maximum edit distance.
         :param prefix: require suggestions to share a prefix of this length
@@ -443,20 +461,10 @@ class IndexReader(ClosableMixin):
             not be yielded.
         """
 
-        if self.has_word_graph(fieldname):
-            node = self.word_graph(fieldname)
-            for word in within(node, text, maxdist, prefix=prefix, seen=seen):
+        for word in self.expand_prefix(fieldname, text[:prefix]):
+            k = distance(word, text, limit=maxdist)
+            if k <= maxdist:
                 yield word
-        else:
-            if seen is None:
-                seen = set()
-            for word in self.expand_prefix(fieldname, text[:prefix]):
-                if word in seen:
-                    continue
-                k = distance(word, text, limit=maxdist)
-                if k <= maxdist:
-                    yield word
-                    seen.add(word)
 
     def most_frequent_terms(self, fieldname, number=5, prefix=''):
         """Returns the top 'number' most frequent terms in the given field as a
@@ -467,12 +475,13 @@ class IndexReader(ClosableMixin):
                in self.iter_prefix(fieldname, prefix))
         return nlargest(number, gen)
 
-    def most_distinctive_terms(self, fieldname, number=5, prefix=None):
+    def most_distinctive_terms(self, fieldname, number=5, prefix=''):
         """Returns the top 'number' terms with the highest `tf*idf` scores as
         a list of (score, text) tuples.
         """
 
-        gen = ((terminfo.weight() * (1.0 / terminfo.doc_frequency()), text)
+        N = float(self.doc_count())
+        gen = ((terminfo.weight() * log(N / terminfo.doc_frequency()), text)
                for text, terminfo in self.iter_prefix(fieldname, prefix))
         return nlargest(number, gen)
 
@@ -682,7 +691,7 @@ class MultiReader(IndexReader):
         # added
         if not tis:
             raise TermNotFound(term)
-        elif len(tis) == 0:
+        elif len(tis) == 1:
             ti, offset = tis[0]
             ti._minid += offset
             ti._maxid += offset
@@ -797,9 +806,17 @@ class MultiReader(IndexReader):
 
         graphs = [r.word_graph(fieldname) for r in self.readers
                   if r.has_word_graph(fieldname)]
+        if len(graphs) == 0:
+            raise KeyError("No readers have graph for %r" % fieldname)
         if len(graphs) == 1:
             return graphs[0]
         return make_binary_tree(UnionNode, graphs)
+
+    def terms_within(self, fieldname, text, maxdist, prefix=0):
+        tset = set()
+        for r in self.readers:
+            tset.update(r.terms_within(fieldname, text, maxdist, prefix=prefix))
+        return tset
 
     def format(self, fieldname):
         for r in self.readers:

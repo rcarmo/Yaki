@@ -27,11 +27,13 @@
 
 from bisect import bisect_left
 
-from whoosh.compat import iteritems, string_type, integer_types, xrange
-from whoosh.filedb.fileindex import Segment
+from whoosh.compat import iteritems, xrange
+from whoosh.filedb.compound import CompoundStorage
 from whoosh.filedb.fieldcache import FieldCache, DefaultFieldCachingPolicy
-from whoosh.matching import FilterMatcher, ListMatcher
+from whoosh.matching import FilterMatcher
 from whoosh.reading import IndexReader, TermNotFound
+from whoosh.store import OverlayStorage
+from whoosh.support import dawg
 
 
 SAVE_BY_DEFAULT = True
@@ -53,32 +55,45 @@ class SegmentReader(IndexReader):
         self._dc = segment.doc_count()
         self._dc_all = segment.doc_count_all()
         if hasattr(self.segment, "segment_id"):
-            self.segid = str(self.segment.segment_id())
+            self.segid = self.segment.segment_id()
         else:
+            from whoosh.codec.base import Segment
             self.segid = Segment._random_id()
+
+        # self.files is a storage object from which to load the segment files.
+        # This is different from the general storage (which will be used for
+        # cahces) if the segment is in a compound file.
+        if segment.is_compound():
+            # Use an overlay here instead of just the compound storage because
+            # in rare circumstances a segment file may be added after the
+            # segment is written
+            self.files = OverlayStorage(segment.open_compound_file(storage),
+                                        self.storage)
+        else:
+            self.files = storage
 
         # Get microreaders from codec
         if codec is None:
-            from whoosh.codec.standard import StdCodec
-            codec = StdCodec(self.storage)
+            from whoosh.codec import default_codec
+            codec = default_codec()
         self._codec = codec
-        self._terms = codec.terms_reader(self.segment)
-        self._lengths = codec.lengths_reader(self.segment)
-        self._stored = codec.stored_fields_reader(self.segment)
+        self._terms = codec.terms_reader(self.files, self.segment)
+        self._lengths = codec.lengths_reader(self.files, self.segment)
+        self._stored = codec.stored_fields_reader(self.files, self.segment)
         self._vectors = None  # Lazy open with self._open_vectors()
-        self._dawg = None  # Lazy open with self._open_dawg()
+        self._graph = None  # Lazy open with self._open_dawg()
 
         self.set_caching_policy()
 
     def _open_vectors(self):
         if self._vectors:
             return
-        self._vectors = self._codec.vector_reader(self.segment)
+        self._vectors = self._codec.vector_reader(self.files, self.segment)
 
     def _open_dawg(self):
-        if self._dawg:
+        if self._graph:
             return
-        self._dawg = self._codec.word_graph(self.segment)
+        self._graph = self._codec.graph_reader(self.files, self.segment)
 
     def has_deletions(self):
         return self._has_deletions
@@ -103,12 +118,14 @@ class SegmentReader(IndexReader):
 
     def close(self):
         self._terms.close()
-        self._lengths.close()
         self._stored.close()
+        if self._lengths:
+            self._lengths.close()
         if self._vectors:
             self._vectors.close()
-        #if self._dawg:
-        #    self._dawg.close()
+        if self._graph:
+            self._graph.close()
+        self.files.close()
 
         self.caching_policy = None
         self.is_closed = True
@@ -136,11 +153,15 @@ class SegmentReader(IndexReader):
         return self._lengths.max_field_length(fieldname)
 
     def doc_field_length(self, docnum, fieldname, default=0):
-        return self._lengths.get(docnum, fieldname, default=default)
+        return self._lengths.doc_field_length(docnum, fieldname,
+                                              default=default)
 
     def has_vector(self, docnum, fieldname):
         if self.schema[fieldname].vector:
-            self._open_vectors()
+            try:
+                self._open_vectors()
+            except (NameError, IOError):
+                return False
             return (docnum, fieldname) in self._vectors
         else:
             return False
@@ -256,13 +277,25 @@ class SegmentReader(IndexReader):
             return False
         if not self.schema[fieldname].spelling:
             return False
-        self._open_dawg()
-        return fieldname in self._dawg
+        try:
+            self._open_dawg()
+        except (NameError, IOError, dawg.FileVersionError):
+            return False
+        return self._graph.has_root(fieldname)
 
     def word_graph(self, fieldname):
         if not self.has_word_graph(fieldname):
-            raise Exception("No word graph for field %r" % fieldname)
-        return self._dawg.edge(fieldname)
+            raise KeyError("No word graph for field %r" % fieldname)
+        return dawg.Node(self._graph, self._graph.root(fieldname))
+
+    def terms_within(self, fieldname, text, maxdist, prefix=0):
+        if not self.has_word_graph(fieldname):
+            # This reader doesn't have a graph stored, use the slow method
+            return IndexReader.terms_within(self, fieldname, text, maxdist,
+                                            prefix=prefix)
+
+        return dawg.within(self._graph, text, k=maxdist, prefix=prefix,
+                           address=self._graph.root(fieldname))
 
     # Field cache methods
 
@@ -294,7 +327,7 @@ class SegmentReader(IndexReader):
             object is specified using `cp`, this argument is ignored.
         :param storage: a custom :class:`whoosh.store.Storage` object to use
             for saving field caches. If a caching policy object is specified
-            using `cp` or `save` is `False`, this argument is ignored. 
+            using `cp` or `save` is `False`, this argument is ignored.
         """
 
         if not cp:

@@ -29,7 +29,7 @@
 from array import array
 from struct import Struct
 
-from whoosh.compat import load, xrange
+from whoosh.compat import load, xrange, array_frombytes
 from whoosh.codec import base
 from whoosh.codec.base import (deminimize_ids, deminimize_weights,
                                deminimize_values)
@@ -54,6 +54,7 @@ def load_old_lengths(obj, dbfile, doccount):
         obj.totals[fieldname] = sum(byte_to_length(b) for b
                                     in obj.lengths[fieldname])
     dbfile.close()
+    return obj
 
 
 # Old block formats
@@ -79,7 +80,7 @@ class Block2(base.BlockBase):
         block.nextoffset = start + header[0]
         block.cmp = header[1]
         block.count = header[2]
-        block.idcode = header[3].decode("Latin1")
+        block.idcode = header[3]
         block.idslen = header[5]
         block.wtslen = header[6]
         block.maxweight = header[7]
@@ -91,25 +92,31 @@ class Block2(base.BlockBase):
         return block
 
     def read_ids(self):
-        dataoffset = self.dataoffset
-        string = self.postfile.map[dataoffset:dataoffset + self.idslen]
-        self.ids = deminimize_ids(string)
+        self.postfile.seek(self.dataoffset)
+        string = self.postfile.read(self.idslen)
+        self.ids = deminimize_ids(self.idcode, self.count, string,
+                                  compression=self.cmp)
+        return self.ids
 
     def read_weights(self):
         if self.wtslen == 0:
-            return [1.0] * self.count
+            weights = [1.0] * self.count
         else:
             offset = self.dataoffset + self.idslen
-            string = self.postfile.map[offset:offset + self.weightslen]
-            return deminimize_weights(self.count, string, self.cmp)
+            self.postfile.seek(offset)
+            string = self.postfile.read(self.wtslen)
+            weights = deminimize_weights(self.count, string,
+                                         compression=self.cmp)
+        return weights
 
     def read_values(self):
         postingsize = self.postingsize
         if postingsize == 0:
             return [None] * self.count
         else:
-            offset = self.dataoffset + self.idslen + self.weightslen
-            string = self.postfile.map[offset:self.nextoffset]
+            offset = self.dataoffset + self.idslen + self.wtslen
+            self.postfile.seek(offset)
+            string = self.postfile.read(self.nextoffset - offset)
             return deminimize_values(postingsize, self.count, string, self.cmp)
 
 
@@ -148,7 +155,7 @@ class Block1(base.BlockBase):
             newoffset = postfile.tell()
         elif self.idslen:
             ids = array("I")
-            ids.fromstring(decompress(postfile.read(self.idslen)))
+            array_frombytes(ids, decompress(postfile.read(self.idslen)))
             if IS_LITTLE:
                 ids.byteswap()
             newoffset = offset + self.idslen
@@ -172,7 +179,7 @@ class Block1(base.BlockBase):
             newoffset = offset
         elif weightslen:
             weights = array("f")
-            weights.fromstring(decompress(postfile.read(weightslen)))
+            array_frombytes(weights, decompress(postfile.read(weightslen)))
             if IS_LITTLE:
                 weights.byteswap()
             newoffset = offset + weightslen
@@ -192,7 +199,8 @@ class Block1(base.BlockBase):
 
         postingsize = self.postingsize
         if postingsize != 0:
-            values_string = postfile.map[startoffset:endoffset]
+            postfile.seek(startoffset)
+            values_string = postfile.read(endoffset - startoffset)
 
             if self.wtslen:
                 # Values string is compressed
@@ -201,7 +209,7 @@ class Block1(base.BlockBase):
             if postingsize < 0:
                 # Pull the array of value lengths off the front of the string
                 lengths = array("i")
-                lengths.fromstring(values_string[:_INT_SIZE * postcount])
+                array_frombytes(lengths, values_string[:_INT_SIZE * postcount])
                 values_string = values_string[_INT_SIZE * postcount:]
 
             # Chop up the block string into individual valuestrings

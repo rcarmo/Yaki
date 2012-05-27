@@ -35,7 +35,7 @@ from whoosh import formats
 from whoosh.analysis import (IDAnalyzer, RegexAnalyzer, KeywordAnalyzer,
                              StandardAnalyzer, NgramAnalyzer, Tokenizer,
                              NgramWordAnalyzer, Analyzer)
-from whoosh.compat import (with_metaclass, itervalues, string_type, u,
+from whoosh.compat import (with_metaclass, itervalues, string_type, u, b,
                            integer_types, long_type, text_type, xrange, PY3)
 from whoosh.support.numeric import (int_to_text, text_to_int, long_to_text,
                                     text_to_long, float_to_text, text_to_float,
@@ -47,7 +47,7 @@ from whoosh.support.times import datetime_to_long
 # fields. There's no "out-of-band" value possible (except for floats, where we
 # use NaN), so we try to be conspicuous at least by using the maximum possible
 # value
-NaN = struct.unpack("<f", '\x00\x00\xc0\xff')[0]
+NaN = struct.unpack("<f", b('\x00\x00\xc0\xff'))[0]
 NUMERIC_DEFAULTS = {"b": 2 ** 7 - 1, "B": 2 ** 8 - 1, "h": 2 ** 15 - 1,
                     "H": 2 ** 16 - 1, "i": 2 ** 31 - 1, "I": 2 ** 32 - 1,
                     "q": 2 ** 63 - 1, "Q": 2 ** 64 - 1, "f": NaN,
@@ -222,10 +222,6 @@ class FieldType(object):
         if "mode" not in kwargs:
             kwargs["mode"] = "index"
         return self.format.word_values(value, self.analyzer, **kwargs)
-
-    def index_(self, fieldname, value, **kwargs):
-        for w, freq, weight, value in self.index(value, **kwargs):
-            yield fieldname, w, freq, weight, value
 
     def process_text(self, qstring, mode='', **kwargs):
         """Analyzes the given string and returns an iterator of token strings.
@@ -489,10 +485,11 @@ class NUMERIC(FieldType):
         return x
 
     def to_text(self, x, shift=0):
-        return self._to_text(self.prepare_number(x), shift=shift)
+        return self._to_text(self.prepare_number(x), shift=shift,
+                             signed=self.signed)
 
     def from_text(self, t):
-        x = self._from_text(t)
+        x = self._from_text(t, signed=self.signed)
         return self.unprepare_number(x)
 
     def process_text(self, text, **kwargs):
@@ -681,7 +678,7 @@ class BOOLEAN(FieldType):
 
     def to_text(self, bit):
         if isinstance(bit, string_type):
-            bit = bit in self.trues
+            bit = bit.lower() in self.trues
         elif not isinstance(bit, bool):
             raise ValueError("%r is not a boolean")
         return self.strings[int(bit)]
@@ -1018,10 +1015,23 @@ class Schema(object):
 
         return sorted(self._fields.items())
 
-    def names(self):
+    def names(self, check_names=None):
         """Returns a list of the names of the fields in this schema.
+
+        :param check_names: (optional) sequence of field names to check
+            whether the schema accepts them as (dynamic) field names -
+            acceptable names will also be in the result list.
+            Note: You may also have static field names in check_names, that
+            won't create duplicates in the result list. Unsupported names
+            will not be in the result list.
         """
-        return sorted(self._fields.keys())
+
+        fieldnames = set(self._fields.keys())
+        if check_names is not None:
+            check_names = set(check_names) - fieldnames
+            fieldnames.update(fieldname for fieldname in check_names
+                              if fieldname in self)
+        return sorted(fieldnames)
 
     def clean(self):
         for field in self:

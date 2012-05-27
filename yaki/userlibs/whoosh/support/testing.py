@@ -25,7 +25,7 @@
 # those of the authors and should not be interpreted as representing official
 # policies, either expressed or implied, of Matt Chaput.
 
-import os.path, shutil, sys, random
+import os.path, shutil, sys, random, traceback
 from functools import wraps
 
 from whoosh.filedb.filestore import FileStorage
@@ -33,13 +33,14 @@ from whoosh.util import now
 
 
 class TempDir(object):
-    def __init__(self, parentdir="tmp", basename=None, ext="",
+    def __init__(self, basename=None, parentdir="tmp", ext="",
                  suppress=frozenset(), keepdir=False):
         self.basename = basename or hex(random.randint(0, 1000000000))[2:]
         dirname = os.path.join(parentdir, self.basename + ext)
         self.dir = os.path.abspath(dirname)
         self.suppress = suppress
         self.keepdir = keepdir
+        self.onexit = None
 
     def __enter__(self):
         if not os.path.exists(self.dir):
@@ -47,16 +48,20 @@ class TempDir(object):
         return self.dir
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.onexit:
+            self.onexit()
         if not self.keepdir:
             try:
                 shutil.rmtree(self.dir)
             except OSError:
                 e = sys.exc_info()[1]
-                print("Can't remove temp dir: " + str(e))
+                sys.stderr.write("Can't remove temp dir: " + str(e) + "\n")
+                if exc_type is None:
+                    raise
 
         if exc_type is not None:
             if self.keepdir:
-                print("Temp dir=", self.dir)
+                sys.stderr.write("Temp dir=" + self.dir + "\n")
             if exc_type not in self.suppress:
                 return False
 
@@ -64,7 +69,9 @@ class TempDir(object):
 class TempStorage(TempDir):
     def __enter__(self):
         dirpath = TempDir.__enter__(self)
-        return FileStorage(dirpath)
+        store = FileStorage(dirpath)
+        self.onexit = lambda: store.close()
+        return store
 
 
 class TempIndex(TempStorage):
@@ -140,14 +147,5 @@ def check_abstract_methods(base, subclass):
                                 % (subclass.__name__, attrname))
 
 
-class Timing(object):
-    def __init__(self):
-        pass
 
-    def __enter__(self):
-        self.t = now()
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if not exc_type:
-            print "%0.8f" % (now() - self.t)
 

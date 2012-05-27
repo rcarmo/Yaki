@@ -31,7 +31,7 @@ from collections import defaultdict
 from struct import Struct
 
 from whoosh.compat import (loads, dumps, xrange, iteritems, itervalues, b,
-                           bytes_type, integer_types)
+                           bytes_type, string_type, integer_types)
 from whoosh.codec import base
 from whoosh.codec.base import (minimize_ids, deminimize_ids, minimize_weights,
                                deminimize_weights, minimize_values,
@@ -40,7 +40,8 @@ from whoosh.filedb.fileindex import TOC, clean_files
 from whoosh.filedb.filetables import CodedOrderedWriter, CodedOrderedReader
 from whoosh.matching import ListMatcher
 from whoosh.reading import TermNotFound
-from whoosh.support.dawg import DawgBuilder, DiskNode
+from whoosh.store import Storage
+from whoosh.support.dawg import GraphWriter, GraphReader
 from whoosh.system import (pack_ushort, pack_long, unpack_ushort, unpack_long,
                            _INT_SIZE, _LONG_SIZE)
 from whoosh.util import byte_to_length, length_to_byte, utf8encode, utf8decode
@@ -48,7 +49,7 @@ from whoosh.util import byte_to_length, length_to_byte, utf8encode, utf8decode
 
 # Standard codec top-level object
 
-class StdCodec(base.Codec):
+class W2Codec(base.Codec):
     TERMS_EXT = ".trm"  # Term index
     POSTS_EXT = ".pst"  # Term postings
     DAWG_EXT = ".dag"  # Spelling graph file
@@ -57,36 +58,33 @@ class StdCodec(base.Codec):
     VPOSTS_EXT = ".vps"  # Vector postings
     STORED_EXT = ".sto"  # Stored fields file
 
-    def __init__(self, storage, blocklimit=128, compression=3,
-                 loadlengths=False, inlinelimit=1):
-        self.storage = storage
+    def __init__(self, blocklimit=128, compression=3, loadlengths=False,
+                 inlinelimit=1):
         self.blocklimit = blocklimit
         self.compression = compression
         self.loadlengths = loadlengths
         self.inlinelimit = inlinelimit
 
     # Per-document value writer
-    def per_document_writer(self, segment):
-        return StdPerDocWriter(self.storage, segment,
-                               blocklimit=self.blocklimit,
-                               compression=self.compression)
+    def per_document_writer(self, storage, segment):
+        return W2PerDocWriter(storage, segment, blocklimit=self.blocklimit,
+                              compression=self.compression)
 
     # Inverted index writer
-    def field_writer(self, segment):
-        return StdFieldWriter(self.storage, segment,
-                               blocklimit=self.blocklimit,
-                               compression=self.compression,
-                               inlinelimit=self.inlinelimit)
+    def field_writer(self, storage, segment):
+        return W2FieldWriter(storage, segment, blocklimit=self.blocklimit,
+                             compression=self.compression,
+                             inlinelimit=self.inlinelimit)
 
     # Readers
 
-    def terms_reader(self, segment):
-        tifile = segment.open_file(self.storage, self.TERMS_EXT)
-        postfile = segment.open_file(self.storage, self.POSTS_EXT, mapped=False)
-        return StdTermsReader(tifile, postfile)
+    def terms_reader(self, storage, segment):
+        tifile = segment.open_file(storage, self.TERMS_EXT)
+        postfile = segment.open_file(storage, self.POSTS_EXT)
+        return W2TermsReader(tifile, postfile)
 
-    def lengths_reader(self, segment):
-        flfile = segment.open_file(self.storage, self.LENGTHS_EXT)
+    def lengths_reader(self, storage, segment):
+        flfile = segment.open_file(storage, self.LENGTHS_EXT)
         doccount = segment.doc_count_all()
 
         # Check the first byte of the file to see if it's an old format
@@ -101,50 +99,60 @@ class StdCodec(base.Codec):
             lengths = OnDiskLengths(flfile, doccount)
         return lengths
 
-    def vector_reader(self, segment):
-        vifile = segment.open_file(self.storage, self.VECTOR_EXT)
-        postfile = segment.open_file(self.storage, self.VPOSTS_EXT, mapped=False)
-        return StdVectorReader(vifile, postfile)
+    def vector_reader(self, storage, segment):
+        vifile = segment.open_file(storage, self.VECTOR_EXT)
+        postfile = segment.open_file(storage, self.VPOSTS_EXT)
+        return W2VectorReader(vifile, postfile)
 
-    def stored_fields_reader(self, segment):
-        sffile = segment.open_file(self.storage, self.STORED_EXT, mapped=False)
+    def stored_fields_reader(self, storage, segment):
+        sffile = segment.open_file(storage, self.STORED_EXT)
         return StoredFieldReader(sffile)
 
-    def word_graph(self, segment):
-        dawgfile = segment.open_file(self.storage, self.DAWG_EXT, mapped=False)
-        return DiskNode.load(dawgfile, expand=False)
+    def graph_reader(self, storage, segment):
+        dawgfile = segment.open_file(storage, self.DAWG_EXT)
+        return GraphReader(dawgfile)
 
-    # Generations
+    # Segments and generations
 
-    def commit_toc(self, indexname, schema, segments, generation):
+    def new_segment(self, storage, indexname):
+        return W2Segment(indexname)
+
+    def commit_toc(self, storage, indexname, schema, segments, generation,
+                   clean=True):
         toc = TOC(schema, segments, generation)
-        toc.write(self.storage, indexname)
+        toc.write(storage, indexname)
         # Delete leftover files
-        clean_files(self.storage, indexname, generation, segments)
+        if clean:
+            clean_files(storage, indexname, generation, segments)
 
 
 # Per-document value writer
 
-class StdPerDocWriter(base.PerDocumentWriter):
+class W2PerDocWriter(base.PerDocumentWriter):
     def __init__(self, storage, segment, blocklimit=128, compression=3):
+        if not isinstance(blocklimit, int):
+            raise ValueError
         self.storage = storage
         self.segment = segment
         self.blocklimit = blocklimit
         self.compression = compression
         self.doccount = 0
 
-        sffile = segment.create_file(storage, StdCodec.STORED_EXT)
+        sffile = segment.create_file(storage, W2Codec.STORED_EXT)
         self.stored = StoredFieldWriter(sffile)
         self.storedfields = None
 
-        self.flfile = segment.create_file(storage, StdCodec.LENGTHS_EXT)
         self.lengths = InMemoryLengths()
 
         # We'll wait to create the vector files until someone actually tries
         # to add a vector
-        vifile = self.segment.create_file(self.storage, StdCodec.VECTOR_EXT)
+        self.vindex = self.vpostfile = None
+
+    def _make_vector_files(self):
+        vifile = self.segment.create_file(self.storage, W2Codec.VECTOR_EXT)
         self.vindex = VectorWriter(vifile)
-        self.vpostfile = self.segment.create_file(self.storage, StdCodec.VPOSTS_EXT)
+        self.vpostfile = self.segment.create_file(self.storage,
+                                                  W2Codec.VPOSTS_EXT)
 
     def start_doc(self, docnum):
         self.docnum = docnum
@@ -159,9 +167,12 @@ class StdPerDocWriter(base.PerDocumentWriter):
 
     def _new_block(self, vformat):
         postingsize = vformat.posting_size
-        return StdBlock(postingsize, stringids=True)
+        return W2Block(postingsize, stringids=True)
 
     def add_vector_items(self, fieldname, fieldobj, items):
+        if self.vindex is None:
+            self._make_vector_files()
+
         # items = (text, freq, weight, valuestring) ...
         postfile = self.vpostfile
         blocklimit = self.blocklimit
@@ -218,7 +229,8 @@ class StdPerDocWriter(base.PerDocumentWriter):
         if self.storedfields is not None:
             self.stored.add(self.storedfields)
         self.stored.close()
-        self.lengths.to_file(self.flfile, self.doccount)
+        flfile = self.segment.create_file(self.storage, W2Codec.LENGTHS_EXT)
+        self.lengths.to_file(flfile, self.doccount)
         if self.vindex:
             self.vindex.close()
             self.vpostfile.close()
@@ -226,9 +238,15 @@ class StdPerDocWriter(base.PerDocumentWriter):
 
 # Inverted index writer
 
-class StdFieldWriter(base.FieldWriter):
+class W2FieldWriter(base.FieldWriter):
     def __init__(self, storage, segment, blocklimit=128, compression=3,
                  inlinelimit=1):
+        assert isinstance(storage, Storage)
+        assert isinstance(segment, base.Segment)
+        assert isinstance(blocklimit, int)
+        assert isinstance(compression, int)
+        assert isinstance(inlinelimit, int)
+
         self.storage = storage
         self.segment = segment
         self.fieldname = None
@@ -237,9 +255,9 @@ class StdFieldWriter(base.FieldWriter):
         self.format = None
         self.spelling = False
 
-        tifile = segment.create_file(storage, StdCodec.TERMS_EXT)
+        tifile = segment.create_file(storage, W2Codec.TERMS_EXT)
         self.termsindex = TermIndexWriter(tifile)
-        self.postfile = segment.create_file(storage, StdCodec.POSTS_EXT)
+        self.postfile = segment.create_file(storage, W2Codec.POSTS_EXT)
 
         # We'll wait to create the DAWG builder until someone actually adds
         # a spelled field
@@ -250,13 +268,17 @@ class StdFieldWriter(base.FieldWriter):
         self.inlinelimit = inlinelimit
         self.block = None
         self.terminfo = None
+        self._infield = False
 
     def _make_dawg_files(self):
-        dawgfile = self.segment.create_file(self.storage, StdCodec.DAWG_EXT)
-        self.dawg = DawgBuilder(dawgfile, field_root=True)
+        dawgfile = self.segment.create_file(self.storage, W2Codec.DAWG_EXT)
+        self.dawg = GraphWriter(dawgfile)
+
+    def _new_block(self):
+        return W2Block(self.format.posting_size)
 
     def _reset_block(self):
-        self.block = StdBlock(self.format.posting_size)
+        self.block = self._new_block()
 
     def _write_block(self):
         self.terminfo.add_block(self.block)
@@ -270,31 +292,23 @@ class StdFieldWriter(base.FieldWriter):
 
         # Magic number
         self.startoffset = postfile.tell()
-        postfile.write(StdBlock.magic)
+        postfile.write(W2Block.magic)
         # Placeholder for block count
         self.blockcount = 0
         postfile.write_uint(0)
-
-    def _finish_blocklist(self):
-        if self.block:
-            self._write_block()
-
-        # Seek back to the start of this list of posting blocks and write the
-        # number of blocks
-        postfile = self.postfile
-        postfile.flush()
-        here = postfile.tell()
-        postfile.seek(self.startoffset + 4)
-        postfile.write_uint(self.blockcount)
-        postfile.seek(here)
-
-        self.block = None
 
     def start_field(self, fieldname, fieldobj):
         self.fieldname = fieldname
         self.field = fieldobj
         self.format = fieldobj.format
         self.spelling = fieldobj.spelling and not fieldobj.separate_spelling()
+        self._dawgfield = False
+        if self.spelling or fieldobj.separate_spelling():
+            if self.dawg is None:
+                self._make_dawg_files()
+            self.dawg.start_field(fieldname)
+            self._dawgfield = True
+        self._infield = True
 
     def start_term(self, text):
         if self.block is not None:
@@ -302,9 +316,7 @@ class StdFieldWriter(base.FieldWriter):
         self.text = text
         self.terminfo = base.FileTermInfo()
         if self.spelling:
-            if self.dawg is None:
-                self._make_dawg_files()
-            self.dawg.insert((self.fieldname,) + tuple(text))
+            self.dawg.insert(text)
         self._start_blocklist()
 
     def add(self, docnum, weight, valuestring, length):
@@ -315,12 +327,13 @@ class StdFieldWriter(base.FieldWriter):
     def add_spell_word(self, fieldname, text):
         if self.dawg is None:
             self._make_dawg_files()
-        self.dawg.insert((fieldname,) + tuple(text))
+        self.dawg.insert(text)
 
     def finish_term(self):
-        if self.block is None:
-            raise Exception("Called finish_term when not in a block")
         block = self.block
+        if block is None:
+            raise Exception("Called finish_term when not in a block")
+
         terminfo = self.terminfo
         if self.blockcount < 1 and block and len(block) < self.inlinelimit:
             # Inline the single block
@@ -328,12 +341,34 @@ class StdFieldWriter(base.FieldWriter):
             vals = None if not block.values else tuple(block.values)
             postings = (tuple(block.ids), tuple(block.weights), vals)
         else:
-            self._finish_blocklist()
+            if block:
+                # Write the current unfinished block to disk
+                self._write_block()
+
+            # Seek back to the start of this list of posting blocks and write
+            # the number of blocks
+            postfile = self.postfile
+            postfile.flush()
+            here = postfile.tell()
+            postfile.seek(self.startoffset + 4)
+            postfile.write_uint(self.blockcount)
+            postfile.seek(here)
+
+            self.block = None
             postings = self.startoffset
 
         self.block = None
         terminfo.postings = postings
         self.termsindex.add((self.fieldname, self.text), terminfo)
+
+    def finish_field(self):
+        if not self._infield:
+            raise Exception("Called finish_field before start_field")
+        self._infield = False
+
+        if self._dawgfield:
+            self.dawg.finish_field()
+            self._dawgfield = False
 
     def close(self):
         self.termsindex.close()
@@ -356,11 +391,11 @@ class PostingMatcher(base.BlockPostingMatcher):
 
         postfile.seek(startoffset)
         magic = postfile.read(4)
-        if magic != StdBlock.magic:
+        if magic != W2Block.magic:
             from whoosh.codec.legacy import old_block_type
             self.blockclass = old_block_type(magic)
         else:
-            self.blockclass = StdBlock
+            self.blockclass = W2Block
 
         self.blockcount = postfile.read_uint()
         self.baseoffset = postfile.tell()
@@ -469,8 +504,12 @@ class PostingIndexBase(CodedOrderedReader):
         for name, num in iteritems(self.fieldmap):
             self.names[num] = name
 
+    def close(self):
+        CodedOrderedReader.close(self)
+        self.postfile.close()
 
-class StdTermsReader(PostingIndexBase):
+
+class W2TermsReader(PostingIndexBase):
     # Implements whoosh.codec.base.TermsReader
 
     def terminfo(self, fieldname, text):
@@ -519,7 +558,7 @@ class StdTermsReader(PostingIndexBase):
         return base.FileTermInfo.read_doc_freq(self.dbfile, datapos)
 
 
-# Vector index
+# Vectors
 
 # docnum, fieldnum
 _vectorkey_struct = Struct("!IH")
@@ -543,7 +582,7 @@ class VectorWriter(TermIndexWriter):
         return pack_long(offset)
 
 
-class StdVectorReader(PostingIndexBase):
+class W2VectorReader(PostingIndexBase):
     # Implements whoosh.codec.base.VectorReader
 
     def matcher(self, docnum, fieldname, format_):
@@ -600,6 +639,9 @@ class LengthsBase(base.LengthsReader):
         for fieldname in self.starts:
             self.starts[fieldname] += eoh
 
+    def doc_count_all(self):
+        return self._count
+
     def field_length(self, fieldname):
         return self.totals.get(fieldname, 0)
 
@@ -651,7 +693,7 @@ class InMemoryLengths(LengthsBase):
 
     # Get
 
-    def get(self, docnum, fieldname, default=0):
+    def doc_field_length(self, docnum, fieldname, default=0):
         try:
             arry = self.lengths[fieldname]
         except KeyError:
@@ -737,7 +779,7 @@ class OnDiskLengths(LengthsBase):
         self.dbfile = dbfile
         self._read_header(dbfile, doccount)
 
-    def get(self, docnum, fieldname, default=0):
+    def doc_field_length(self, docnum, fieldname, default=0):
         try:
             start = self.starts[fieldname]
         except KeyError:
@@ -787,6 +829,11 @@ class StoredFieldWriter(object):
         self.directory.append(pack_stored_pointer(f.tell(), len(vstring)))
         f.write(vstring)
 
+    def add_reader(self, sfreader):
+        add = self.add
+        for vdict in sfreader:
+            add(vdict)
+
     def close(self):
         f = self.dbfile
         dirpos = f.tell()
@@ -807,6 +854,7 @@ class StoredFieldReader(object):
         dbfile.seek(0)
         dirpos = dbfile.read_long()
         self.length = dbfile.read_uint()
+        self.basepos = dbfile.tell()
 
         dbfile.seek(dirpos)
 
@@ -824,6 +872,23 @@ class StoredFieldReader(object):
     def close(self):
         self.dbfile.close()
 
+    def __iter__(self):
+        dbfile = self.dbfile
+        names = self.names
+        lengths = array("I")
+
+        dbfile.seek(self.directory_offset)
+        for i in xrange(self.length):
+            dbfile.seek(_LONG_SIZE, 1)
+            lengths.append(dbfile.read_uint())
+
+        dbfile.seek(self.basepos)
+        for length in lengths:
+            vlist = loads(dbfile.read(length) + b("."))
+            vdict = dict((names[i], vlist[i]) for i in xrange(len(vlist))
+                     if vlist[i] is not None)
+            yield vdict
+
     def __getitem__(self, num):
         if num > self.length - 1:
             raise IndexError("Tried to get document %s, file has %s"
@@ -837,7 +902,8 @@ class StoredFieldReader(object):
             raise Exception("Error reading %r @%s %s < %s"
                             % (dbfile, start, len(ptr), stored_pointer_size))
         position, length = unpack_stored_pointer(ptr)
-        vlist = loads(dbfile.map[position:position + length] + b("."))
+        dbfile.seek(position)
+        vlist = loads(dbfile.read(length) + b("."))
 
         names = self.names
         # Recreate a dictionary by putting the field names and values back
@@ -848,9 +914,61 @@ class StoredFieldReader(object):
         return vdict
 
 
+# Segment object
+
+class W2Segment(base.Segment):
+    def __init__(self, indexname, doccount=0, segid=None, deleted=None):
+        """
+        :param name: The name of the segment (the Index object computes this
+            from its name and the generation).
+        :param doccount: The maximum document number in the segment.
+        :param term_count: Total count of all terms in all documents.
+        :param deleted: A set of deleted document numbers, or None if no
+            deleted documents exist in this segment.
+        """
+
+        assert isinstance(indexname, string_type)
+        self.indexname = indexname
+        assert isinstance(doccount, integer_types)
+        self.doccount = doccount
+        self.segid = self._random_id() if segid is None else segid
+        self.deleted = deleted
+        self.compound = False
+
+    def codec(self, **kwargs):
+        return W2Codec(**kwargs)
+
+    def doc_count_all(self):
+        return self.doccount
+
+    def doc_count(self):
+        return self.doccount - self.deleted_count()
+
+    def has_deletions(self):
+        return self.deleted_count() > 0
+
+    def deleted_count(self):
+        if self.deleted is None:
+            return 0
+        return len(self.deleted)
+
+    def delete_document(self, docnum, delete=True):
+        if delete:
+            if self.deleted is None:
+                self.deleted = set()
+            self.deleted.add(docnum)
+        elif self.deleted is not None and docnum in self.deleted:
+            self.deleted.clear(docnum)
+
+    def is_deleted(self, docnum):
+        if self.deleted is None:
+            return False
+        return docnum in self.deleted
+
+
 # Posting blocks
 
-class StdBlock(base.BlockBase):
+class W2Block(base.BlockBase):
     magic = b("Blk3")
 
     infokeys = ("count", "maxid", "maxweight", "minlength", "maxlength",
@@ -895,7 +1013,8 @@ class StdBlock(base.BlockBase):
 
     def read_ids(self):
         offset = self.dataoffset
-        idstring = self.postfile.map[offset:offset + self.idslen]
+        self.postfile.seek(offset)
+        idstring = self.postfile.read(self.idslen)
         ids = deminimize_ids(self.idcode, self.count, idstring,
                              self.compression)
         self.ids = ids
@@ -906,7 +1025,8 @@ class StdBlock(base.BlockBase):
             weights = [1.0] * self.count
         else:
             offset = self.dataoffset + self.idslen
-            wtstring = self.postfile.map[offset:offset + self.weightslen]
+            self.postfile.seek(offset)
+            wtstring = self.postfile.read(self.weightslen)
             weights = deminimize_weights(self.count, wtstring,
                                          self.compression)
         self.weights = weights
@@ -918,7 +1038,8 @@ class StdBlock(base.BlockBase):
             values = [None] * self.count
         else:
             offset = self.dataoffset + self.idslen + self.weightslen
-            vstring = self.postfile.map[offset:self.nextoffset]
+            self.postfile.seek(offset)
+            vstring = self.postfile.read(self.nextoffset - offset)
             values = deminimize_values(postingsize, self.count, vstring,
                                        self.compression)
         self.values = values

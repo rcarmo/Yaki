@@ -35,7 +35,7 @@ from collections import defaultdict
 from hashlib import md5  #@UnresolvedImport
 from struct import Struct
 
-from whoosh.compat import long_type, xrange, b, text_type
+from whoosh.compat import long_type, xrange, b, bytes_type
 from whoosh.system import _INT_SIZE, _LONG_SIZE
 
 
@@ -106,10 +106,10 @@ class HashWriter(object):
         write = dbfile.write
 
         for key, value in items:
-            if isinstance(key, text_type):
-                key = key.encode('latin-1')
-            if isinstance(value, text_type):
-                value = value.encode('latin-1')
+            if not isinstance(key, bytes_type):
+                raise TypeError("Key %r should be bytes" % key)
+            if not isinstance(value, bytes_type):
+                raise TypeError("Value %r should be bytes" % value)
             write(pack_lengths(len(key), len(value)))
             write(key)
             write(value)
@@ -173,7 +173,6 @@ class HashWriter(object):
 class HashReader(object):
     def __init__(self, dbfile):
         self.dbfile = dbfile
-        self.map = dbfile.map
 
         dbfile.seek(0)
         magic = dbfile.read(4)
@@ -206,12 +205,12 @@ class HashReader(object):
     def close(self):
         if self.is_closed:
             raise Exception("Tried to close %r twice" % self)
-        del self.map
         self.dbfile.close()
         self.is_closed = True
 
     def read(self, position, length):
-        return self.map[position:position + length]
+        self.dbfile.seek(position)
+        return self.dbfile.read(length)
 
     def _ranges(self, pos=None):
         if pos is None:
@@ -285,8 +284,8 @@ class HashReader(object):
     def ranges_for_key(self, key):
         read = self.read
         pointer_size = self.pointer_size
-        if isinstance(key, text_type):
-            key = key.encode('latin-1')
+        if not isinstance(key, bytes_type):
+            raise TypeError("Key %r should be bytes" % key)
         keyhash = self.hash_func(key)
         hpos, hslots = self._hashtable_info(keyhash)
         if not hslots:
@@ -339,10 +338,10 @@ class OrderedHashWriter(HashWriter):
         lk = self.lastkey or b('')
 
         for key, value in items:
-            if isinstance(key, text_type):
-                key = key.encode('latin-1')
-            if isinstance(value, text_type):
-                value = value.encode('latin-1')
+            if not isinstance(key, bytes_type):
+                raise TypeError("Key %r should be bytes" % key)
+            if not isinstance(value, bytes_type):
+                raise TypeError("Value %r should be bytes" % value)
             if key <= lk:
                 raise ValueError("Keys must increase: %r .. %r" % (lk, key))
             lk = key
@@ -384,8 +383,8 @@ class OrderedHashReader(HashReader):
         indexbase = self.indexbase
         lo = 0
         hi = self.length
-        if isinstance(key, text_type):
-            key = key.encode('latin-1')
+        if not isinstance(key, bytes_type):
+            raise TypeError("Key %r should be bytes" % key)
         while lo < hi:
             mid = (lo + hi) // 2
             midkey = key_at(dbfile.get_long(indexbase + mid * _LONG_SIZE))
