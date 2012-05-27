@@ -14,6 +14,7 @@ log=logging.getLogger("Snakelets.logger")
 
 import os, stat, glob, codecs
 import rfc822 # for basic parsing
+from fs import MultiFS, OSFS, ZipFS # filesystem abstractions
 from yaki.Page import Page
 from yaki.Utils import *
 
@@ -45,109 +46,111 @@ class Store:
   Wiki Store - abstracts actual storage and versioning
   """
   def __init__(self,path="space"):
-    """Constructor"""
-    self.path = path
-    self.pages={}
-    self.aliases={}
-    self.dates={}
+      """
+      Constructor
+      """
+      self.fs = MultiFS()
+      # Mount the path we're given as a writable fs
+      self.fs.addfs('root',OSFS(path),True)
+      self.pages={}
+      self.aliases={}
+      self.dates={}
   
   def getPath(self,pagename):
-    """Append the store path to the pagename"""
-    return os.path.join(self.path, pagename)
+      """
+      Append the store path to the pagename
+      """
+      # TODO: this will break with pyfilesystem - leaving it in temporarily to raise the proper exception
+      return os.path.join(self.path, pagename)
   
   def date(self, pagename):
-    """
-    Retrieve a page's stored date (or fall back to mtime)
-    """
-    if pagename in self.dates.keys():
-      return self.dates[pagename]
-    else:
-      return self.mtime(pagename)
+      """
+      Retrieve a page's stored date (or fall back to mtime)
+      """
+      if pagename in self.dates.keys():
+          return self.dates[pagename]
+      else:
+          return self.mtime(pagename)
 
   def mtime(self, pagename):
-    """
-    Retrieve modification time for the current revision of a given page by checking the folder modification time.
-    Assumes underlying OS/FS knows how to properly update mtime on a folder.
-    """
-    targetpath = self.getPath(pagename)
-    if(os.path.exists(targetpath)):
-      return os.stat(targetpath)[stat.ST_MTIME]
-    return None
+      """
+      Retrieve modification time for the current revision of a given page by checking the folder modification time.
+      Assumes underlying OS/FS knows how to properly update mtime on a folder.
+      """
+      if self.fs.exists(pagename):
+          return time.mktime(self.fs.getinfo(pagename)['modified_time'])
+      return None
   
   def getAttachments(self, pagename, pattern = '*'):
-    targetpath = self.getPath(pagename)
-    attachments = glob.glob(os.path.join(targetpath,pattern))
-    attachments = map(os.path.basename,filter(lambda x: not os.path.isdir(x), attachments))
-    return attachments
+      # TODO: check if os.path.basename might be required 
+      attachments = filter(lambda x: not self.fs.isdir(x), self.fs.ilistdir(pagename, pattern))
+      return attachments
         
   def isAttachment(self, pagename, attachment):
-    """
-    Checks if a given filename is actually attached to a page
-    """
-    targetpath = self.getPath(pagename)
-    attachment = os.path.join(targetpath,attachment)
-    try:
-      if attachment and os.path.exists(attachment) and not os.path.isdir(attachment):
-        return True
-    except:
-      log.error("Bad attachment in %s" % pagename)
-    return False
+      """
+      Checks if a given filename is actually attached to a page
+      """
+      attachment = os.path.join(targetpath,attachment)
+      try:
+          if self.fs.exists(attachment) and not self.fs.isdir(attachment):
+            return True
+      except:
+          log.error("Bad attachment %s in %s" % (attachment, pagename))
+      return False
 
   def getAttachmentFilename(self, pagename, attachment):
-    """
-    Returns the filename for an attachment
-    """
-    targetpath = self.getPath(pagename)
-    targetfile = os.path.join(targetpath,attachment)
-    return targetfile
+      """
+      Returns the filename for an attachment
+      """
+      targetfile = os.path.join(targetpath,attachment)
+      return targetfile
   
   def getRevision(self, pagename, revision = None):
-    """
-    Retrieve the specified revision from the store.
-    
-    At this point we ignore the revision argument
-    (versioning will be added at a later date, if ever)
-    """
-    targetpath = self.getPath(pagename)
-    mtime = self.mtime(pagename)
-    if mtime != None:
-      for base in BASE_FILENAMES:
-        targetfile = os.path.join(targetpath,base)
-        if os.path.exists(targetfile):
-          mtime = os.stat(targetfile)[stat.ST_MTIME]
-          break
-      try:
-        buffer = codecs.open(targetfile,'r','utf-8').read()
-        p = Page(buffer,BASE_TYPES[base.split('.',1)[1]])
+      """
+      Retrieve the specified revision from the store.
+      
+      At this point we ignore the revision argument
+      (versioning will be added at a later date, if ever)
+      """
+      mtime = self.mtime(pagename)
+      if mtime != None:
+          for base in BASE_FILENAMES:
+              targetfile = os.path.join(targetpath,base)
+              if self.fs.exists(targetfile):
+                  mtime = self.mtime(targetfile)
+                  break
+          try:
+              buffer = codecs.EncodedFile(self.fs.open(targetfile,'rb'),'utf-8').read()
+              p = Page(buffer,BASE_TYPES[base.split('.',1)[1]])
   
-        # If the page has no title header, use the path name
-        if 'title' not in p.headers.keys():
-          p.headers['title'] = pagename
-        p.headers['name'] = pagename
-        
-        # Now try to supply a sensible set of dates
-        try:
-          # try parsing the date header
-          p.headers['date'] = parseDate(p.headers['date'])
-        except:
-          # if there's no date header, use the file's modification time
-          # (if only to avoid throwing an exception again)
-          p.headers['date'] = mtime
-          pass
-        # Never rely on the file modification time for last-modified
-        # (otherwise SVN, Unison, etc play havoc with modification dates)
-        try:
-          p.headers['last-modified'] = parseDate(p.headers['last-modified'])
-        except:
-          p.headers['last-modified'] = p.headers['date']
-          pass
-        self.dates[pagename] = p.headers['date']
-        return p
-      except IOError:
-        raise IOError, "Couldn't find page %s." % (pagename)
-    else:
-       raise IOError, "Couldn't find page %s." % (pagename)
-    return None
+              # If the page has no title header, use the path name
+              if 'title' not in p.headers.keys():
+                  p.headers['title'] = pagename
+              p.headers['name'] = pagename
+              
+              # Now try to supply a sensible set of dates
+              try:
+                  # try parsing the date header
+                  p.headers['date'] = parseDate(p.headers['date'])
+              except:
+                  # if there's no date header, use the file's modification time
+                  # (if only to avoid throwing an exception again)
+                  p.headers['date'] = mtime
+                  pass
+              # Never rely on the file modification time for last-modified
+              # (otherwise SVN, Unison, etc play havoc with modification dates)
+              try:
+                  p.headers['last-modified'] = parseDate(p.headers['last-modified'])
+              except:
+                  p.headers['last-modified'] = p.headers['date']
+                  pass
+              self.dates[pagename] = p.headers['date']
+              return p
+          except IOError:
+              raise IOError, "Couldn't find page %s." % (pagename)
+      else:
+          raise IOError, "Couldn't find page %s." % (pagename)
+      return None
   
   def allPages(self):
     """
