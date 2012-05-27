@@ -1,4 +1,6 @@
 .DS_Store
+.git
+.svn
 *.pyc
 .AppleDouble
 yaki/var/cache/*
@@ -8,8 +10,5 @@ yaki/var/cache/*
 yaki/var/log/*
 yaki/var/Yaki*
 yaki/tmp/*
-
-
 Yaki.xcodeproj/project.xcworkspace/xcuserdata/rcarmo.xcuserdatad/UserInterfaceState.xcuserstate
-
 Yaki.xcodeproj/project.xcworkspace/contents.xcworkspacedata
