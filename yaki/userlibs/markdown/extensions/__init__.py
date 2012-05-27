@@ -1,6 +1,3 @@
-from markdown.md_logging import message
-from logging import DEBUG, INFO, WARN, ERROR, CRITICAL
-
 """
 Extensions
 -----------------------------------------------------------------------------
@@ -17,15 +14,19 @@ class Extension:
         """
         self.config = configs
 
-    def getConfig(self, key):
+    def getConfig(self, key, default=''):
         """ Return a setting for the given key or an empty string. """
         if key in self.config:
             return self.config[key][0]
         else:
-            return ""
+            return default
+
+    def getConfigs(self):
+        """ Return all configs settings as a dict. """
+        return dict([(key, self.getConfig(key)) for key in self.config.keys()])
 
     def getConfigInfo(self):
-        """ Return all config settings as a list of tuples. """
+        """ Return all config descriptions as a list of tuples. """
         return [(key, self.config[key][1]) for key in self.config.keys()]
 
     def setConfig(self, key, value):

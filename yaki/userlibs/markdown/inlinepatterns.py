@@ -59,7 +59,7 @@ def build_inlinepatterns(md_instance, **kwargs):
     """ Build the default set of inline patterns for Markdown. """
     inlinePatterns = odict.OrderedDict()
     inlinePatterns["backtick"] = BacktickPattern(BACKTICK_RE)
-    inlinePatterns["escape"] = SimpleTextPattern(ESCAPE_RE)
+    inlinePatterns["escape"] = EscapePattern(ESCAPE_RE, md_instance)
     inlinePatterns["reference"] = ReferencePattern(REFERENCE_RE, md_instance)
     inlinePatterns["link"] = LinkPattern(LINK_RE, md_instance)
     inlinePatterns["image_link"] = ImagePattern(IMAGE_LINK_RE, md_instance)
@@ -71,7 +71,8 @@ def build_inlinepatterns(md_instance, **kwargs):
     inlinePatterns["automail"] = AutomailPattern(AUTOMAIL_RE, md_instance)
     inlinePatterns["linebreak2"] = SubstituteTagPattern(LINE_BREAK_2_RE, 'br')
     inlinePatterns["linebreak"] = SubstituteTagPattern(LINE_BREAK_RE, 'br')
-    inlinePatterns["html"] = HtmlPattern(HTML_RE, md_instance)
+    if md_instance.safeMode != 'escape':
+        inlinePatterns["html"] = HtmlPattern(HTML_RE, md_instance)
     inlinePatterns["entity"] = HtmlPattern(ENTITY_RE, md_instance)
     inlinePatterns["not_strong"] = SimpleTextPattern(NOT_STRONG_RE)
     inlinePatterns["strong_em"] = DoubleTagPattern(STRONG_EM_RE, 'strong,em')
@@ -100,7 +101,7 @@ ESCAPE_RE = r'\\(.)'                             # \<
 EMPHASIS_RE = r'(\*)([^\*]+)\2'                    # *emphasis*
 STRONG_RE = r'(\*{2}|_{2})(.+?)\2'                      # **strong**
 STRONG_EM_RE = r'(\*{3}|_{3})(.+?)\2'            # ***strong***
-SMART_EMPHASIS_RE = r'(?<!\w)(_)(\S.+?)\2(?!\w)'        # _smart_emphasis_
+SMART_EMPHASIS_RE = r'(?<!\w)(_)(?!_)(.+?)(?<!_)\2(?!\w)'  # _smart_emphasis_
 EMPHASIS_2_RE = r'(_)(.+?)\2'                 # _emphasis_
 LINK_RE = NOIMG + BRK + \
 r'''\(\s*(<.*?>|((?:(?:\(.*?\))|[^\(\)]))*?)\s*((['"])(.*?)\12\s*)?\)'''
@@ -108,11 +109,11 @@ r'''\(\s*(<.*?>|((?:(?:\(.*?\))|[^\(\)]))*?)\s*((['"])(.*?)\12\s*)?\)'''
 
 IMAGE_LINK_RE = r'\!' + BRK + r'\s*\((<.*?>|([^\)]*))\)'
 # ![alttxt](http://x.com/) or ![alttxt](<http://x.com/>)
-REFERENCE_RE = NOIMG + BRK+ r'\s*\[([^\]]*)\]'           # [Google][3]
+REFERENCE_RE = NOIMG + BRK+ r'\s?\[([^\]]*)\]'           # [Google][3]
 SHORT_REF_RE = NOIMG + r'\[([^\]]+)\]'                   # [Google]
-IMAGE_REFERENCE_RE = r'\!' + BRK + '\s*\[([^\]]*)\]' # ![alt text][2]
+IMAGE_REFERENCE_RE = r'\!' + BRK + '\s?\[([^\]]*)\]' # ![alt text][2]
 NOT_STRONG_RE = r'((^| )(\*|_)( |$))'                        # stand-alone * or _
-AUTOLINK_RE = r'<((?:f|ht)tps?://[^>]*)>'        # <http://www.123.com>
+AUTOLINK_RE = r'<((?:[Ff]|[Hh][Tt])[Tt][Pp][Ss]?://[^>]*)>' # <http://www.123.com>
 AUTOMAIL_RE = r'<([^> \!]*@[^> ]*)>'               # <me@example.com>
 
 HTML_RE = r'(\<([a-zA-Z/][^\>]*?|\!--.*?--)\>)'               # <...>
@@ -184,7 +185,18 @@ class Pattern:
         """ Return class name, to define pattern type """
         return self.__class__.__name__
 
-BasePattern = Pattern # for backward compatibility
+    def unescape(self, text):
+        """ Return unescaped text given text with an inline placeholder. """
+        try:
+            stash = self.markdown.treeprocessors['inline'].stashed_nodes
+        except KeyError:
+            return text
+        def get_stash(m):
+            id = m.group(1)
+            if id in stash:
+                return stash.get(id)
+        return util.INLINE_PLACEHOLDER_RE.sub(get_stash, text)
+
 
 class SimpleTextPattern(Pattern):
     """ Return a simple text of group(2) of a Pattern. """
@@ -193,6 +205,18 @@ class SimpleTextPattern(Pattern):
         if text == util.INLINE_PLACEHOLDER_PREFIX:
             return None
         return text
+
+
+class EscapePattern(Pattern):
+    """ Return an escaped character. """
+
+    def handleMatch(self, m):
+        char = m.group(2)
+        if char in self.markdown.ESCAPED_CHARS:
+            return '%s%s%s' % (util.STX, ord(char), util.ETX)
+        else:
+            return '\\%s' % char
+
 
 class SimpleTagPattern(Pattern):
     """
@@ -245,10 +269,26 @@ class DoubleTagPattern(SimpleTagPattern):
 class HtmlPattern(Pattern):
     """ Store raw inline html and return a placeholder. """
     def handleMatch (self, m):
-        rawhtml = m.group(2)
-        inline = True
+        rawhtml = self.unescape(m.group(2))
         place_holder = self.markdown.htmlStash.store(rawhtml)
         return place_holder
+
+    def unescape(self, text):
+        """ Return unescaped text given text with an inline placeholder. """
+        try:
+            stash = self.markdown.treeprocessors['inline'].stashed_nodes
+        except KeyError:
+            return text
+        def get_stash(m):
+            id = m.group(1)
+            value = stash.get(id)
+            if value is not None:
+                try:
+                    return self.markdown.serializer(value)
+                except:
+                    return '\%s' % value
+            
+        return util.INLINE_PLACEHOLDER_RE.sub(get_stash, text)
 
 
 class LinkPattern(Pattern):
@@ -262,12 +302,12 @@ class LinkPattern(Pattern):
         if href:
             if href[0] == "<":
                 href = href[1:-1]
-            el.set("href", self.sanitize_url(href.strip()))
+            el.set("href", self.sanitize_url(self.unescape(href.strip())))
         else:
             el.set("href", "")
 
         if title:
-            title = dequote(title) #.replace('"', "&quot;")
+            title = dequote(self.unescape(title)) 
             el.set("title", title)
         return el
 
@@ -288,20 +328,29 @@ class LinkPattern(Pattern):
         `username:password@host:port`.
 
         """
+        if not self.markdown.safeMode:
+            # Return immediately bipassing parsing.
+            return url
+        
+        try:
+            scheme, netloc, path, params, query, fragment = url = urlparse(url)
+        except ValueError:
+            # Bad url - so bad it couldn't be parsed.
+            return ''
+        
         locless_schemes = ['', 'mailto', 'news']
-        scheme, netloc, path, params, query, fragment = url = urlparse(url)
-        safe_url = False
-        if netloc != '' or scheme in locless_schemes:
-            safe_url = True
+        if netloc == '' and scheme not in locless_schemes:
+            # This fails regardless of anything else. 
+            # Return immediately to save additional proccessing
+            return ''
 
         for part in url[2:]:
             if ":" in part:
-                safe_url = False
+                # Not a safe url
+                return ''
 
-        if self.markdown.safeMode and not safe_url:
-            return ''
-        else:
-            return urlunparse(url)
+        # Url passes all tests. Return url as-is.
+        return urlunparse(url)
 
 class ImagePattern(LinkPattern):
     """ Return a img element from the given match. """
@@ -312,11 +361,11 @@ class ImagePattern(LinkPattern):
             src = src_parts[0]
             if src[0] == "<" and src[-1] == ">":
                 src = src[1:-1]
-            el.set('src', self.sanitize_url(src))
+            el.set('src', self.sanitize_url(self.unescape(src)))
         else:
             el.set('src', "")
         if len(src_parts) > 1:
-            el.set('title', dequote(" ".join(src_parts[1:])))
+            el.set('title', dequote(self.unescape(" ".join(src_parts[1:]))))
 
         if self.markdown.enable_attributes:
             truealt = handleAttributes(m.group(2), el)
@@ -376,7 +425,7 @@ class AutolinkPattern(Pattern):
     """ Return a link Element given an autolink (`<http://example/com>`). """
     def handleMatch(self, m):
         el = util.etree.Element("a")
-        el.set('href', m.group(2))
+        el.set('href', self.unescape(m.group(2)))
         el.text = util.AtomicString(m.group(2))
         return el
 
@@ -386,7 +435,7 @@ class AutomailPattern(Pattern):
     """
     def handleMatch(self, m):
         el = util.etree.Element('a')
-        email = m.group(2)
+        email = self.unescape(m.group(2))
         if email.startswith("mailto:"):
             email = email[len("mailto:"):]
 

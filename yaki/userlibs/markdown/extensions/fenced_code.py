@@ -15,13 +15,17 @@ This extension adds Fenced Code Blocks to Python-Markdown.
     ... ~~~
     ... '''
     >>> html = markdown.markdown(text, extensions=['fenced_code'])
-    >>> html
-    u'<p>A paragraph before a fenced code block:</p>\\n<pre><code>Fenced code block\\n</code></pre>'
+    >>> print html
+    <p>A paragraph before a fenced code block:</p>
+    <pre><code>Fenced code block
+    </code></pre>
 
 Works with safe_mode also (we check this because we are using the HtmlStash):
 
-    >>> markdown.markdown(text, extensions=['fenced_code'], safe_mode='replace')
-    u'<p>A paragraph before a fenced code block:</p>\\n<pre><code>Fenced code block\\n</code></pre>'
+    >>> print markdown.markdown(text, extensions=['fenced_code'], safe_mode='replace')
+    <p>A paragraph before a fenced code block:</p>
+    <pre><code>Fenced code block
+    </code></pre>
 
 Include tilde's in a code block and wrap with blank lines:
 
@@ -29,23 +33,33 @@ Include tilde's in a code block and wrap with blank lines:
     ... ~~~~~~~~
     ...
     ... ~~~~
-    ...
     ... ~~~~~~~~'''
-    >>> markdown.markdown(text, extensions=['fenced_code'])
-    u'<pre><code>\\n~~~~\\n\\n</code></pre>'
+    >>> print markdown.markdown(text, extensions=['fenced_code'])
+    <pre><code>
+    ~~~~
+    </code></pre>
 
-Multiple blocks and language tags:
+Language tags:
 
     >>> text = '''
     ... ~~~~{.python}
-    ... block one
-    ... ~~~~
-    ...
-    ... ~~~~.html
-    ... <p>block two</p>
+    ... # Some python code
     ... ~~~~'''
-    >>> markdown.markdown(text, extensions=['fenced_code'])
-    u'<pre><code class="python">block one\\n</code></pre>\\n\\n<pre><code class="html">&lt;p&gt;block two&lt;/p&gt;\\n</code></pre>'
+    >>> print markdown.markdown(text, extensions=['fenced_code'])
+    <pre><code class="python"># Some python code
+    </code></pre>
+
+Optionally backticks instead of tildes as per how github's code block markdown is identified:
+
+    >>> text = '''
+    ... `````
+    ... # Arbitrary code
+    ... ~~~~~ # these tildes will not close the block
+    ... `````'''
+    >>> print markdown.markdown(text, extensions=['fenced_code'])
+    <pre><code># Arbitrary code
+    ~~~~~ # these tildes will not close the block
+    </code></pre>
 
 Copyright 2007-2008 [Waylan Limberg](http://achinghead.com/).
 
@@ -67,7 +81,7 @@ from markdown.extensions.codehilite import CodeHilite, CodeHiliteExtension
 
 # Global vars
 FENCED_BLOCK_RE = re.compile( \
-    r'(?P<fence>^~{3,})[ ]*(\{?\.(?P<lang>[a-zA-Z0-9_-]*)\}?)?[ ]*\n(?P<code>.*?)(?P=fence)[ ]*$',
+    r'(?P<fence>^(?:~{3,}|`{3,}))[ ]*(\{?\.?(?P<lang>[a-zA-Z0-9_-]*)\}?)?[ ]*\n(?P<code>.*?)(?<=\n)(?P=fence)[ ]*$',
     re.MULTILINE|re.DOTALL
     )
 CODE_WRAP = '<pre><code%s>%s</code></pre>'
@@ -91,12 +105,6 @@ class FencedBlockPreprocessor(markdown.preprocessors.Preprocessor):
 
         self.checked_for_codehilite = False
         self.codehilite_conf = {}
-
-    def getConfig(self, key):
-        if key in self.config:
-            return self.config[key][0]
-        else:
-            return None
 
     def run(self, lines):
         """ Match and store Fenced Code Blocks in the HtmlStash. """
@@ -123,6 +131,7 @@ class FencedBlockPreprocessor(markdown.preprocessors.Preprocessor):
                 if self.codehilite_conf:
                     highliter = CodeHilite(m.group('code'),
                             linenos=self.codehilite_conf['force_linenos'][0],
+                            guess_lang=self.codehilite_conf['guess_lang'][0],
                             css_class=self.codehilite_conf['css_class'][0],
                             style=self.codehilite_conf['pygments_style'][0],
                             lang=(m.group('lang') or None),
