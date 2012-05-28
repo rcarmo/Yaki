@@ -198,7 +198,7 @@ class Store:
   def addAttachment(self, pagename, filename, newbasename = None):
       # TODO: this will need further revision (do we want a writable store?)
       targetpath = self.getPath(pagename)
-      if(not self.fs..exists(targetpath)):
+      if(not self.fs.exists(targetpath)):
           self.fs.makedir(targetpath, True)
       if newbasename:
           self.fs.copy(filename,os.path.join(targetpath,newbasename))
