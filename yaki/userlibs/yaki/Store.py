@@ -96,7 +96,7 @@ class Store:
     
     def getAttachments(self, pagename, pattern = '*'):
         # TODO: check if os.path.basename might be required 
-        attachments = filter(lambda x: not self.fs.isdir(x), self.fs.listdir(pagename, pattern))
+        attachments = filter(lambda x: not self.fs.isdir(x), self.fs.ilistdir(pagename, pattern))
         return attachments
           
     def isAttachment(self, pagename, attachment):
@@ -128,7 +128,7 @@ class Store:
         mtime = self.mtime(pagename)
         if mtime != None:
             for base in BASE_FILENAMES:
-                targetfile = os.path.join(targetpath,base)
+                targetfile = os.path.join(pagename,base)
                 if self.fs.exists(targetfile):
                     mtime = self.mtime(targetfile)
                     break
@@ -169,17 +169,16 @@ class Store:
         """
         Enumerate all pages and their last modification time
         """
-        for path, info in self.fs.listdirinfo('/'):
-            print path, info
-            # filter out paths containing SCM stuff
+        for path in self.fs.walkdirs('/'):
             pieces = path.split('/')
+            # filter out paths containing SCM stuff
             if True in map(lambda x: x in pieces, self.ignore):
                 continue
-            end = pieces.pop()
-            for base in BASE_FILENAMES:
-                if end.lower() == base:
-                    # cunningly reassemble the tailless list as the page path
-                    self.pages['/'.join(pieces)] = _fs_mtime(info)
+            for filename, info in self.fs.ilistdirinfo(path):
+                for base in BASE_FILENAMES:
+                    if os.path.basename(filename).lower() == base:
+                        # cunningly reassemble the tailless list as the page path
+                        self.pages[path[1:]] = _fs_mtime(info)
         
         for name in self.pages.keys():
             base = name.lower()
