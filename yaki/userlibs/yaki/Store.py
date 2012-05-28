@@ -14,7 +14,10 @@ log=logging.getLogger("Snakelets.logger")
 
 import os, stat, glob, codecs
 import rfc822 # for basic parsing
-from fs import MultiFS, OSFS, ZipFS # filesystem abstractions
+import fs # filesystem abstractions
+from fs.multifs import MultiFS
+from fs.osfs import OSFS
+from fs.zipfs import ZipFS
 from yaki.Page import Page
 from yaki.Utils import *
 
