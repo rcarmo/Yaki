@@ -52,7 +52,7 @@ class Store:
       """
       Constructor
       """
-      self.fs = MultiFS(thread_synchronize=True)
+      self.fs = MultiFS()
       # Mount the path we're given as a writable fs
       self.fs.addfs('root',OSFS(path,thread_synchronize=True),True)
       self.pages={}
