@@ -50,7 +50,7 @@ def _fs_mtime(info):
      """
      for i,f in [('st_mtime',lambda x: x), ('modified_time',lambda x: time.mktime(x.timetuple())), ('created_time',lambda x: time.mktime(x.timetuple()))]:
           if i in info:
-              return f(info[i])
+              return int(f(info[i]))
      raise KeyError('Modification time not available')
 
 class Store:
@@ -103,7 +103,7 @@ class Store:
         """
         Checks if a given filename is actually attached to a page
         """
-        attachment = os.path.join(targetpath,attachment)
+        attachment = os.path.join(pagename,attachment)
         try:
             if self.fs.exists(attachment) and not self.fs.isdir(attachment):
               return True
