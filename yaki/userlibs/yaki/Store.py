@@ -45,16 +45,17 @@ class Store:
   """
   Wiki Store - abstracts actual storage and versioning
   """
-  def __init__(self,path="space"):
+  def __init__(self, path="space", ignore=['CVS', '.hg', '.svn', '.git', '.AppleDouble']):
       """
       Constructor
       """
-      self.fs = MultiFS()
+      self.fs = MultiFS(thread_synchronize=True)
       # Mount the path we're given as a writable fs
-      self.fs.addfs('root',OSFS(path),True)
+      self.fs.addfs('root',OSFS(path,thread_synchronize=True),True)
       self.pages={}
       self.aliases={}
       self.dates={}
+      self.ignore = ignore
   
   def getPath(self,pagename):
       """
@@ -153,56 +154,56 @@ class Store:
       return None
   
   def allPages(self):
-    """
-    Enumerate all pages and their last modification time
-    """
-    for folder, subfolders, files in os.walk(self.path):
-      # Skip common SCM subfolders
-      # TODO: move this to a regexp-based ignore list
-      for i in ['CVS', '.hg', '.svn', '.git', '.AppleDouble']:
-        if i in subfolders:
-          subfolders.remove(i)
-      for base in BASE_FILENAMES:
-        if( base in files ):
-          # Check for modification date of markup file only
-          mtime = os.stat(os.path.join(folder,base))[stat.ST_MTIME]
-          # Add each path (removing the self.path prefix)
-          self.pages[folder[len(self.path)+1:]] = mtime
-
-    for name in self.pages.keys():
-      base = os.path.basename(name).lower()
-      if base in self.aliases.keys():
-        if len(self.aliases[base]) > len(name):
-          self.aliases[base] = name
-      else:
-        self.aliases[base] = name        
-      for replacement in ALIASING_CHARS:
-        alias = name.lower().replace(' ',replacement)
-        self.aliases[alias] = name
-    return self.pages
+      """
+      Enumerate all pages and their last modification time
+      """
+      for path, info in self.fs.listdirinfo('/'):
+          # filter out paths containing SCM stuff
+          pieces = path.split('/')
+          if True in map(lambda x: x in pieces, self.ignore):
+              continue
+          end = pieces.pop()
+          for base in BASE_FILENAMES:
+              if end.lower() == base:
+                  # cunningly reassemble the tailless list as the page path
+                  self.pages['/'.join(pieces)] = time.mktime(info['modified_time'])
+      
+      for name in self.pages.keys():
+          base = name.lower()
+          if base in self.aliases.keys():
+              if len(self.aliases[base]) > len(name):
+                  self.aliases[base] = name
+          else:
+              self.aliases[base] = name        
+          for replacement in ALIASING_CHARS:
+              alias = name.lower().replace(' ',replacement)
+              self.aliases[alias] = name
+      return self.pages
   
   def updatePage(self, pagename, fields, base = "index.txt"):
-    """
-    Updates a given page, inserting a neutral text file by default
-    """
-    targetpath = self.getPath(pagename)
-    if(not os.path.exists(targetpath)):
-      os.makedirs(targetpath)
-    filename = os.path.join(targetpath,base) 
-    try:
-      open(filename, "wb").write((BASE_PAGE % fields).encode('utf-8'))
-    except IOError:
-      return None
-    return True
+      """
+      Updates a given page, inserting a neutral text file by default
+      """
+      # TODO: this will need further revision (do we want a writable store?)
+      targetpath = self.getPath(pagename)
+      if(not self.fs.exists(targetpath)):
+          self.fs.makedir(targetpath, True)
+      filename = os.path.join(targetpath,base) 
+      try:
+          self.fs.open(filename, "wb").write((BASE_PAGE % fields).encode('utf-8'))
+      except IOError:
+          return None
+      return True
   
   def addAttachment(self, pagename, filename, newbasename = None):
-    targetpath = self.getPath(pagename)
-    if(not os.path.exists(targetpath)):
-      os.makedirs(targetpath)
-    if newbasename:
-      os.rename(filename,os.path.join(targetpath,newbasename))
-    else:
-      os.rename(filename,os.path.join(targetpath,os.path.basename(filename)))
+      # TODO: this will need further revision (do we want a writable store?)
+      targetpath = self.getPath(pagename)
+      if(not self.fs..exists(targetpath)):
+          self.fs.makedir(targetpath, True)
+      if newbasename:
+          self.fs.copy(filename,os.path.join(targetpath,newbasename))
+      else:
+          self.fs.copy(filename,os.path.join(targetpath,os.path.basename(filename)))
 
 #=================================
 
