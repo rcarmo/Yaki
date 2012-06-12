@@ -28,7 +28,8 @@ BASE_TYPES={
   "md": "text/x-markdown",
   "mkd": "text/x-markdown",
   "markdown": "text/x-markdown",
-  "textile": "text/x-textile"
+  "textile": "text/x-textile",
+  "rst": "text/x-rst",
 }
 BASE_FILENAMES=["index.%s" % x for x in BASE_TYPES.keys()]
 BASE_PAGE = """From: %(author)s
@@ -224,7 +225,7 @@ if __name__=="__main__":
   s = Store('../../../pages/main')
   print s.allPages()
   print "Getting test page."
-  r = s.getRevision('meta/Sandbox')
+  r = s.getRevision('docs/yaki/Markup/reST')
   if None != r:
     print r.raw
   else:

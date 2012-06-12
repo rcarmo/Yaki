@@ -13,13 +13,15 @@ Published under the MIT license.
 
 import rfc822
 
-# Allow module to load regardless of textile or markdown support
+
+# Allow module to load regardless of textile or markdown support (which are bundled in)
 try:
   import textile
   import markdown
 except ImportError:
   pass
 
+  
 # helper functions for rendering
 
 def _markdown(buffer):
@@ -35,6 +37,26 @@ def _textile(buffer):
 def _html(buffer):
   return buffer
 
+render_map = {u'text/plain': _plaintext,
+              u'text/x-web-markdown': _markdown,
+              u'text/x-markdown': _markdown,
+              u'text/markdown': _markdown,
+              u'text/textile': _textile,
+              u'text/x-textile': _textile,
+              u'text/html': _html}
+
+def _restructuredtext(buffer):
+  return rest.publish_parts(source=buffer,writer_name='html')['html_body']
+
+# docutils is typically installed globally, so insert it separately
+from docutils.writers.html4css1 import Writer
+try:
+  from docutils import core as rest
+  render_map[u'text/x-rst'] = _restructuredtext
+except ImportError:
+  render_map[u'text/x-rst'] = _plaintext
+  pass
+
 
 class Page:
   """
@@ -49,7 +71,7 @@ class Page:
     self.headers = {}
     self.raw = ''
   
-    if mimetype in ['text/plain', 'text/x-textile', 'text/x-markdown']:
+    if mimetype in ['text/plain', 'text/x-textile', 'text/x-markdown', 'text/x-rst']:
       try:
         (header_lines,self.raw) = buffer.split("\n\n", 1)
         for header in header_lines.strip().split("\n"):
@@ -79,7 +101,7 @@ class Page:
     self.raw = text
     self.headers['content-type'] = markup
   
-  def render(self, default = 'text/x-textile'):
+  def render(self, default = u'text/x-textile'):
     """
     Render page contents as HTML
     """
@@ -88,12 +110,6 @@ class Page:
     except:
       format = default
     #print "Format: %s, %s" % (format, self.headers['title'])
-    self.html = {u'text/plain': _plaintext,
-                 u'text/x-web-markdown': _markdown,
-                 u'text/x-markdown': _markdown,
-                 u'text/markdown': _markdown,
-                 u'text/textile': _textile,
-                 u'text/x-textile': _textile,
-                 u'text/html': _html}[format](unicode(self.raw))
+    self.html = render_map[format](unicode(self.raw))
     return self.html
 
