@@ -104,9 +104,9 @@ class Haystack(dict):
   def __ge__(self,other):
     raise TypeError('Comparison undefined for this kind of dictionary')
   
-  def __repr__(self,other):
-    raise TypeError('Comparison undefined for this kind of dictionary')
-  
+  def __repr__(self):
+    return "<yaki '%s'>" % self.index
+
   def expire(self,when):
     """
     Remove from cache any items older than a specified time
