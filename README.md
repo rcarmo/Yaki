@@ -1,13 +1,12 @@
 # Yaki - A fast, powerful filesystem-based wiki
 
-## Latest update:
+## Deprecation Warning:
 
-* [2012-03-01](https://github.com/rcarmo/Yaki/blob/35d9db7ba02c68973da230986c89295edb8264e5/pages/main/blog/2012/03/01/2205/index.md)
-* [2011-11-20](https://github.com/rcarmo/Yaki/blob/ae8de89fd7a4bc2cac53cb3c72d04321de4952b3/pages/main/blog/2011/11/20/1706/index.md)
+This is being superseded by [yaki-tng](https://github.com/rcarmo/yaki-tng), which is a nearly complete re-write atop [Bottle](http://github.com/defnull/bottle).
 
 ## About
 
-This is the second public release of Yaki (the first was in [Google Code][gc], and is long obsolete).
+This was the second public release of Yaki (the first was in [Google Code][gc], and is long obsolete).
 
 Yaki is a filesystem-based wiki that is used as the underpinnings of [The Tao of Mac][t] (and a few other sites that started using the initial release).
 
@@ -34,12 +33,6 @@ Yaki is a filesystem-based wiki that is used as the underpinnings of [The Tao of
 * Has a number of unusual Bliki features, like a blog-like home page, linkblog support, and the SeeAlso table at the bottom of each page.
 * Supports full-text indexing and search using [Whoosh](http://bitbucket.org/mchaput/whoosh/wiki/Home)
 
-## Roadmap
-
-* Full conversion of legacy Snakelet docs
-* Support for multiple Wiki instances in the same installation (currently partly working)
-* [Annotator](http://okfnlabs.org/annotator/) support (currently being worked on in the `annotator` branch, feel free to join in)
-
 ## Requirements
 
 * Python 2.6 (2.7 will work just as well, and 2.5 may work with minimal tweaks)
@@ -49,7 +42,7 @@ Yaki is a filesystem-based wiki that is used as the underpinnings of [The Tao of
 
 Yaki is released under the [MIT License][mit]. Some third-party libraries in the `userlibs` folder are licensed differently and are included merely to ease deployment.
 
-The [Twitter Bootstrap][tb] HTML+CSS which is now used as the default theme is licensed under the [Apache License v2.0][al].
+The [Twitter Bootstrap][tb] HTML+CSS which is used as the default theme is licensed under the [Apache License v2.0][al].
 
 ## Credits
 
